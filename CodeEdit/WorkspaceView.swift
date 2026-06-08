@@ -119,6 +119,12 @@ struct WorkspaceView: View {
                             )
                         }
                     }
+                    .onAppear {
+                        if let raw = workspace.getFromWorkspaceState(.workspaceMode) as? String,
+                           let mode = WorkspaceMode(rawValue: raw) {
+                            workspace.workspaceMode = mode
+                        }
+                    }
                 }
             }
             .background(EffectView(.contentBackground))

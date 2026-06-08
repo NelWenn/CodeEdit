@@ -68,8 +68,12 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
         NotificationCenter.default.removeObserver(self)
     }
 
-    /// The current central-area mode (code editor vs. Claude agent). Persisted in Task 7.
-    @Published var workspaceMode: WorkspaceMode = .editor
+    /// The current central-area mode (code editor vs. Claude agent), persisted per workspace.
+    @Published var workspaceMode: WorkspaceMode = .editor {
+        didSet {
+            addToWorkspaceState(key: .workspaceMode, value: workspaceMode.rawValue)
+        }
+    }
 
     func getFromWorkspaceState(_ key: WorkspaceStateKey) -> Any? {
         return workspaceState[key.rawValue]

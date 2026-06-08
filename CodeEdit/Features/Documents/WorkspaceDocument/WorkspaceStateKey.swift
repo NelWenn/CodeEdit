@@ -15,4 +15,5 @@ enum WorkspaceStateKey: String {
     case navigatorCollapsed
     case inspectorCollapsed
     case toolbarCollapsed
+    case workspaceMode
 }
