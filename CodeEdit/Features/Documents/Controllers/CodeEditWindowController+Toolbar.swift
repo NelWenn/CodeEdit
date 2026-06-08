@@ -67,6 +67,7 @@ extension CodeEditWindowController {
             .flexibleSpace,
             .itemListTrackingSeparator,
             .flexibleSpace,
+            .editorAgentModeItem,
             .toggleLastSidebarItem
         ]
 
@@ -80,6 +81,7 @@ extension CodeEditWindowController {
             .flexibleSpace,
             .itemListTrackingSeparator,
             .toggleLastSidebarItem,
+            .editorAgentModeItem,
             .branchPicker,
             .activityViewer,
             .notificationItem,
@@ -192,6 +194,8 @@ extension CodeEditWindowController {
             group.subitems = [stop, start]
 
             return group
+        case .editorAgentModeItem:
+            return editorAgentModeItem()
         default:
             return NSToolbarItem(itemIdentifier: itemIdentifier)
         }
@@ -229,6 +233,16 @@ extension CodeEditWindowController {
         let toolbarItem = NSToolbarItem(itemIdentifier: .notificationItem)
         guard let workspace = workspace else { return nil }
         let view = NSHostingView(rootView: NotificationToolbarItem().environmentObject(workspace))
+        toolbarItem.view = view
+        return toolbarItem
+    }
+
+    private func editorAgentModeItem() -> NSToolbarItem? {
+        let toolbarItem = NSToolbarItem(itemIdentifier: .editorAgentModeItem)
+        toolbarItem.paletteLabel = "Editor / Agent"
+        toolbarItem.toolTip = "Switch between the editor and the Claude agent"
+        guard let workspace else { return nil }
+        let view = NSHostingView(rootView: EditorAgentToggle().environmentObject(workspace))
         toolbarItem.view = view
         return toolbarItem
     }
