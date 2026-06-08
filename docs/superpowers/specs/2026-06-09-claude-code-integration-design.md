@@ -1,118 +1,108 @@
-# Claude Code Integration — Design
+# Claude Code Integration — Design (Editor/Agent Mode)
 
 **Date:** 2026-06-09
-**Status:** Approved (pending written-spec review)
-**Base:** Fork of [CodeEditApp/CodeEdit](https://github.com/CodeEditApp/CodeEdit) (MIT), native macOS SwiftUI IDE.
+**Status:** Approved (Lot A); Lot B deferred
+**Base:** Fork of [CodeEditApp/CodeEdit](https://github.com/CodeEditApp/CodeEdit) (MIT), rebranded **CodeEditAi**.
+
+> Supersedes the earlier "Claude tab in the Inspector" approach. The user wants a
+> full **Editor ⇄ Agent mode** toggle that transforms the central area, not a side tab.
+
+## Build constraint
+
+CodeEditAi must be built with **Xcode 27 beta (Swift 6.4)** at
+`~/Downloads/Xcode-beta.app` (the user is on macOS 27 beta). CLI verification must set
+`DEVELOPER_DIR=/Users/theoschneider/Downloads/Xcode-beta.app/Contents/Developer`,
+since `xcode-select` points to the stable Xcode 26.5 whose Swift 6.3.2 silently
+accepts code that 6.4 rejects.
 
 ## Goal
 
-Turn the CodeEdit fork into the user's daily-driver, AI-native IDE by adding a
-dedicated **Claude** panel that hosts the official `claude` CLI (Claude Code) and
-automatically feeds it the current file / selection as context.
+Add an **Editor / Agent** toggle in the top-right of the toolbar (just before the
+Inspector toggle). Two modes for the workspace:
 
-The IDE already provides the other three requested pieces out of the box:
+- **Editor** (default): the classic IDE — central code editor.
+- **Agent**: the central editor area is replaced by the **Claude Code CLI** (`claude`)
+  running full-frame. The **file navigator** (left) and the **console/terminal**
+  remain visible and usable.
 
-- File tree (left) — `Features/NavigatorArea`
-- Git source control — `Features/SourceControl`
-- Integrated terminal (SwiftTerm) — `Features/TerminalEmulator` + `Features/UtilityArea`
+## Why not the VSCode extension
 
-### Why not the VSCode extension
+The official Claude Code product for VSCode is a VSCode extension; extensions only run
+in VSCode's Electron Extension Host and cannot load into a native AppKit/SwiftUI app.
+The intelligence is the `claude` CLI; we host that directly — fully native.
 
-The official Claude Code product for VSCode is a VSCode *extension*. Extensions run
-only inside VSCode's Electron-based Extension Host (the `vscode` API) and cannot be
-loaded into a native AppKit/SwiftUI app. The intelligence, however, lives in the
-**`claude` CLI**; the extension is a thin integration layer over it. We therefore
-integrate the CLI directly — cleaner and fully native.
+## Architecture (how it plugs into CodeEdit)
 
-## Scope (this milestone)
+CodeEdit's window is an AppKit `CodeEditSplitViewController` (NSSplitViewController) with
+three panes: **navigator | center | inspector**, plus an `NSToolbar`
+(`CodeEditWindowController+Toolbar.swift`). The **center** pane is the SwiftUI
+`WorkspaceView`, itself a vertical split of `editorArea` (top) and the utility
+area/console (bottom).
 
-Integration depth: **dedicated panel + auto context** (chosen over "CLI in the
-terminal only" and "deep native IDE protocol").
+### Lot A — Editor/Agent mode (this milestone)
 
-In scope:
-- A "Claude" tab in the right-hand **Inspector** panel.
-- A real terminal session running `claude` in the workspace root.
-- Toolbar actions: new session, send current file, send current selection.
-- Auto context via `@file` mentions and annotated selection blocks injected into the
-  running session's stdin.
-- Graceful handling when `claude` is not installed.
-
-Out of scope (possible future milestones):
-- Deep native IDE protocol (`~/.claude/ide/` lockfile + MCP/WebSocket, native diff
-  viewer, bidirectional selection) — the "Niveau 3" option.
-- Multiple concurrent Claude sessions / session history persistence.
-
-## Placement
-
-A new case in `InspectorTab` (`Features/InspectorArea/Models/InspectorTab.swift`,
-which conforms to `WorkspacePanelTab`). Claude appears as a tab in the existing
-right column, next to File and History. This is the least code, 100% native, and
-matches the intended "Claude on the right" layout.
-
-## Architecture
-
-Each unit has a single responsibility, a clear interface, and is understandable in
-isolation.
-
-| Unit | Responsibility | Reuses / depends on |
+| Unit | Responsibility | Plugs into |
 |---|---|---|
-| `InspectorTab.claude` | New enum case: title "Claude", SF Symbol `sparkles`, body → `ClaudeInspectorView` | `InspectorTab.swift` |
-| `ClaudeInspectorView` | SwiftUI container: toolbar + terminal + "not installed" banner | `ClaudeSession` |
-| `ClaudeTerminalView` | `NSViewRepresentable` wrapping a SwiftTerm local-process view that runs `claude` | modeled on `TerminalEmulatorView` / `CELocalShellTerminalView` |
-| `ClaudeSession` (`ObservableObject`) | Session lifecycle, holds the terminal handle, injects stdin, reads the active editor | `EditorManager.activeEditor` |
-| `ClaudeContextBuilder` | **Pure function**: `(fileURL, workspaceURL, selectionText, range) -> String` prompt | none (pure, unit-tested) |
+| `WorkspaceMode` (enum `.editor`/`.agent`) | the mode value | new file |
+| `WorkspaceDocument.workspaceMode` (`@Published`) | per-workspace mode state, persisted in workspace state (like `toolbarCollapsed`) | `WorkspaceDocument` |
+| `EditorAgentToggle` | SwiftUI segmented control `[ Editor \| Agent ]` (SF Symbols `doc.text` / `sparkles`) bound to `workspaceMode` | hosted in toolbar |
+| `.editorAgentModeItem` toolbar item | `NSToolbarItem` (NSHostingView of `EditorAgentToggle`), inserted in `toolbarDefaultItemIdentifiers` immediately **before** `.toggleLastSidebarItem` | `CodeEditWindowController+Toolbar.swift` |
+| `ClaudeAgentView` | `NSViewRepresentable` wrapping a SwiftTerm local-process view that runs `claude` in the workspace root | new file, models on `TerminalEmulatorView` / `CELocalShellTerminalView` |
+| `ClaudeSession` (`ObservableObject`) | lifecycle of the `claude` process for the workspace; created lazily on first switch to Agent, kept alive when toggling back (cached like `TerminalCache`) | new file |
 
-### Data flow
+**The swap** happens in `WorkspaceView.editorArea`:
 
-1. **Launch.** `ClaudeSession` spawns `claude` through the user's login shell
-   (`/bin/zsh -lc 'claude'`) with `cwd` = workspace root URL. Going through the login
-   shell resolves `PATH` — essential because the app is sandboxed; this mirrors how the
-   existing terminal already launches the user's shell (`CELocalShellTerminalView.startProcess`).
-2. **Send file (toolbar ⧉).** Read `EditorManager.activeEditor.selectedTab?.file.url`,
-   compute the path relative to the workspace root, inject `@<relative/path>` into the
-   PTY stdin (Claude Code understands `@file` mentions).
-3. **Send selection (toolbar ✎).** Read `cursorPositions[0].range` (an `NSRange`) from the
-   active `EditorInstance`, extract the selected substring, inject it as an annotated
-   fenced code block, e.g. `` From Foo.swift L12–L20: ```...``` ``.
-4. **New session (toolbar ⊕).** Terminate the current `claude` process and start a fresh one.
+```
+switch workspace.workspaceMode {
+case .editor: EditorLayoutView(...)   // existing
+case .agent:  ClaudeAgentView()       // full-frame claude terminal
+}
+```
 
-### Key integration points (verified in the codebase)
+The navigator (outer AppKit split) and the console (bottom of `WorkspaceView`) are
+untouched. In Agent mode the editor tab bar is not shown (the whole editor area is
+replaced).
 
-- Active file + selection: `EditorManager.activeEditor` → `.selectedTab` →
-  `EditorInstance.file.url` and `EditorInstance.cursorPositions: [CursorPosition]`,
-  where `CursorPosition.range` is an `NSRange` (used already by
-  `StatusBarCursorPositionLabel`).
-- Terminal spawning: `CELocalShellTerminalView.startProcess(workspaceURL:shell:)`
-  (SwiftTerm `LocalProcessTerminalView`). `ClaudeTerminalView` follows the same pattern,
-  swapping the launched command for `claude`.
-- Right-panel tabs: `InspectorTab: WorkspacePanelTab` enum with `title`,
-  `systemImage`, and `body`.
+### Data flow (Agent mode)
 
-## Error handling
+1. Toggling to **Agent** sets `workspace.workspaceMode = .agent`.
+2. `WorkspaceView.editorArea` renders `ClaudeAgentView`, which (via `ClaudeSession`)
+   spawns `claude` through the user's login shell (`/bin/zsh -lc 'claude'`) with `cwd` =
+   workspace root. Going through the login shell resolves `PATH` (the app is sandboxed;
+   this mirrors how the existing terminal launches the shell).
+3. Toggling back to **Editor** keeps the `claude` process alive (cached) so the session
+   resumes on return.
 
-- **`claude` not on PATH** — detected via a `which claude` probe through the login
-  shell. If absent, `ClaudeInspectorView` shows a banner ("Claude Code n'est pas
-  installé") with the install command instead of starting a session.
-- **No file open** — ⧉ and ✎ toolbar actions are disabled.
-- **Empty selection** — ✎ falls back to sending the whole file (`@file` mention).
+### Error handling
 
-## Testing
+- **`claude` not on PATH** — `ClaudeAgentView` shows a banner ("Claude Code n'est pas
+  installé") with the install command instead of a dead terminal (probe via `which claude`).
+- The toggle is always available; switching to Agent with no workspace folder is a no-op
+  banner.
 
-- `ClaudeContextBuilder` is a pure function → unit tests in `CodeEditTests`:
-  - relative-path computation for files inside the workspace,
-  - selection formatting (file name + line range + fenced block),
-  - empty selection → file-only output.
-- Process spawn + stdin injection → manual verification (not unit-testable cleanly).
+### Testing
 
-## Effort & risks
+- `WorkspaceMode` + persistence (read/write workspace state) — unit-testable in
+  `CodeEditTests`.
+- Toolbar item presence/placement — light unit/manual check.
+- Process spawn + terminal rendering — manual verification (run app, toggle, see `claude`).
 
-Roughly 1–2 focused sessions; most work reuses the terminal infrastructure.
+### Out of scope for Lot A
 
-Risk areas to validate early:
-1. Injecting text into the SwiftTerm PTY stdin of the running `claude` TUI.
-2. Exact formatting of `@file` mentions / selection blocks that Claude Code parses well.
+- Auto-sending current file/selection as context (possible later; the editor isn't
+  visible in Agent mode, so context UX needs its own thought).
+- Multiple concurrent Claude sessions.
 
-## Build prerequisite
+## Lot B — Console dockable bottom/right (deferred)
 
-Before feature work, verify the fork builds and runs (Xcode 26.5, Swift 6.3.2,
-`CodeEdit` scheme). The base must be a working daily driver first.
+Make the console (`UtilityAreaView`, currently the bottom item of `WorkspaceView`'s
+vertical `SplitView`, positioned via overlay) dockable to either **bottom** or **right**.
+Requires restructuring `WorkspaceView`'s split to support a horizontal axis and a
+`consoleDockPosition` setting. Riskiest layout change → its own spec/plan after Lot A is
+verified working.
+
+## Verification (each lot)
+
+Build green with the beta toolchain:
+`DEVELOPER_DIR=<beta> xcodebuild -project CodeEdit.xcodeproj -scheme CodeEdit -configuration Debug -destination 'platform=macOS,arch=arm64' -derivedDataPath /tmp/ceai_beta -skipPackagePluginValidation build`
+then run in Xcode 27 beta and exercise the toggle.
