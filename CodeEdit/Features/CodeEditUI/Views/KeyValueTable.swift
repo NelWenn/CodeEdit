@@ -37,14 +37,14 @@ private struct NewListTableItemView<HeaderView: View>: View {
         headerView: HeaderView? = nil,
         completion: @escaping (String, String) -> Void
     ) {
-        self.key = key ?? ""
-        self.value = value ?? ""
         self.keyColumnName = keyColumnName
         self.valueColumnName = valueColumnName
         self.newItemInstruction = newItemInstruction
         self.validKeys = validKeys
         self.headerView = headerView
         self.completion = completion
+        self._key = State(initialValue: key ?? "")
+        self._value = State(initialValue: value ?? "")
     }
 
     var body: some View {
