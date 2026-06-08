@@ -176,6 +176,11 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
         workspaceFileManager?.addObserver(undoRegistration)
         editorManager?.restoreFromState(self)
         utilityAreaModel?.restoreFromState(self)
+
+        if let raw = getFromWorkspaceState(.workspaceMode) as? String,
+           let mode = WorkspaceMode(rawValue: raw) {
+            workspaceMode = mode
+        }
     }
 
     override func read(from url: URL, ofType typeName: String) throws {

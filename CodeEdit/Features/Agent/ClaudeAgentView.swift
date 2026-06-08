@@ -8,7 +8,7 @@ import SwiftTerm
 
 /// Full-frame view hosting the `claude` CLI for Agent mode.
 struct ClaudeAgentView: NSViewRepresentable {
-    @ObservedObject var session: ClaudeSession
+    let session: ClaudeSession
     let workspaceURL: URL?
 
     func makeNSView(context: Context) -> CELocalShellTerminalView {

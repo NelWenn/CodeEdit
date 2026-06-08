@@ -29,7 +29,8 @@ final class ClaudeSession: ObservableObject {
         guard !hasLaunchedClaude else { return }
         hasLaunchedClaude = true
         // Let the login shell finish initializing (PATH, rc files) before running claude.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak view] in
+            guard let view, view.process.running else { return }
             view.process.send(data: Array("claude\n".utf8)[...])
         }
     }
