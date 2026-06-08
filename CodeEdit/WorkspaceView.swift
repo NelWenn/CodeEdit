@@ -28,6 +28,7 @@ struct WorkspaceView: View {
     @EnvironmentObject private var utilityAreaViewModel: UtilityAreaViewModel
 
     @StateObject private var themeModel: ThemeModel = .shared
+    @StateObject private var claudeSession = ClaudeSession()
 
     @State private var showingAlert = false
     @State private var terminalCollapsed = true
@@ -136,12 +137,22 @@ struct WorkspaceView: View {
     @ViewBuilder private var editorArea: some View {
         ZStack {
             GeometryReader { geo in
-                EditorLayoutView(
-                    layout: editorManager.isFocusingActiveEditor
-                    ? editorManager.activeEditor.getEditorLayout() ?? editorManager.editorLayout
-                    : editorManager.editorLayout,
-                    focus: $focusedEditor
-                )
+                Group {
+                    switch workspace.workspaceMode {
+                    case .editor:
+                        EditorLayoutView(
+                            layout: editorManager.isFocusingActiveEditor
+                            ? editorManager.activeEditor.getEditorLayout() ?? editorManager.editorLayout
+                            : editorManager.editorLayout,
+                            focus: $focusedEditor
+                        )
+                    case .agent:
+                        ClaudeAgentView(
+                            session: claudeSession,
+                            workspaceURL: workspace.workspaceFileManager?.folderUrl
+                        )
+                    }
+                }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .onChange(of: geo.size.height) { _, newHeight in
                     editorsHeight = newHeight
