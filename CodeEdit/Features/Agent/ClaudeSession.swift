@@ -34,6 +34,22 @@ final class ClaudeSession: ObservableObject {
         view.process.send(data: Array(text.utf8)[...])
     }
 
+    /// Restarts the claude session in place, continuing the same conversation. Used after a
+    /// model/effort change (already written to `~/.claude/settings.json`) so the new setting
+    /// takes effect — `claude --continue` re-reads settings.json and resumes the conversation.
+    func restart() {
+        guard let view = terminalView, view.process.running else { return }
+        let interrupt: [UInt8] = [0x03] // Ctrl-C
+        view.process.send(data: interrupt[...]) // clear/interrupt
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak view] in
+            view?.process.send(data: interrupt[...]) // second Ctrl-C quits the claude TUI
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak view] in
+            guard let view, view.process.running else { return }
+            view.process.send(data: Array("claude --continue\n".utf8)[...])
+        }
+    }
+
     private func launchClaudeIfNeeded(in view: CELocalShellTerminalView) {
         guard !hasLaunchedClaude else { return }
         hasLaunchedClaude = true
