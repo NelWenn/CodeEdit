@@ -27,7 +27,11 @@ struct ClaudeSessionsReader {
     /// Encodes a working-directory path the way Claude Code names its project folders:
     /// every character that is not an ASCII letter or digit becomes `-`.
     static func encodedProjectDir(for cwd: URL) -> String {
-        let path = cwd.path(percentEncoded: false)
+        // Drop any trailing slash so a directory URL (which the workspace normalizes WITH a
+        // trailing "/") encodes the same as Claude Code's own `process.cwd()` encoding, which
+        // has no trailing separator. Otherwise the trailing "/" would become a stray "-".
+        var path = cwd.standardizedFileURL.path(percentEncoded: false)
+        while path.count > 1, path.hasSuffix("/") { path.removeLast() }
         return String(path.map { character in
             (character.isASCII && (character.isLetter || character.isNumber)) ? character : "-"
         })

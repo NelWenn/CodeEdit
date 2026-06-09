@@ -80,6 +80,21 @@ final class ClaudeSessionsReaderTests: XCTestCase {
         XCTAssertEqual(sessions.first?.title, "Help me refactor this module")
     }
 
+    func testEncodedProjectDirIgnoresTrailingSlash() {
+        // Workspace folder URLs are normalized WITH a trailing slash; the encoded dir must match
+        // Claude's no-trailing-separator encoding (and equal the no-slash form).
+        let withSlash = URL(filePath: "/Users/theo/Developer/CodeEdit/")
+        let withoutSlash = URL(filePath: "/Users/theo/Developer/CodeEdit")
+        XCTAssertEqual(
+            ClaudeSessionsReader.encodedProjectDir(for: withSlash),
+            "-Users-theo-Developer-CodeEdit"
+        )
+        XCTAssertEqual(
+            ClaudeSessionsReader.encodedProjectDir(for: withSlash),
+            ClaudeSessionsReader.encodedProjectDir(for: withoutSlash)
+        )
+    }
+
     func testLongTitleIsTruncatedWithEllipsis() throws {
         let base = try makeTempProjectsDir()
         defer { try? FileManager.default.removeItem(at: base) }
