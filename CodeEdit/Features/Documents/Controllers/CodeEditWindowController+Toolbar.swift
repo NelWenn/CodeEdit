@@ -140,9 +140,9 @@ extension CodeEditWindowController {
         let toolbarItem = NSToolbarItem(itemIdentifier: .spotifyPlayer)
         toolbarItem.visibilityPriority = .user
         let view = NSHostingView(rootView: SpotifyPlayerView())
-        let lowWidth = view.widthAnchor.constraint(equalToConstant: 360)
+        let lowWidth = view.widthAnchor.constraint(equalToConstant: 540)
         lowWidth.priority = .defaultLow
-        let minWidth = view.widthAnchor.constraint(greaterThanOrEqualToConstant: 160)
+        let minWidth = view.widthAnchor.constraint(greaterThanOrEqualToConstant: 200)
         minWidth.priority = .defaultHigh
         NSLayoutConstraint.activate([lowWidth, minWidth])
         toolbarItem.view = view

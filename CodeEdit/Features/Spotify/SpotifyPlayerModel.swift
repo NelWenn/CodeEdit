@@ -17,15 +17,21 @@ final class SpotifyPlayerModel: ObservableObject {
     @Published private(set) var isLiked = false
     @Published private(set) var hasActiveDevice = true
     @Published private(set) var localProgressMs = 0
+    @Published private(set) var localVolumePercent = 0
 
     private let auth: SpotifyAuthService
     private let api: SpotifyAPIClient
     private var pollTask: Task<Void, Never>?
-    private var ticker: Timer?
+    private var ticker: Task<Void, Never>?
     private var lastLikedTrackID: String?
     /// Number of visible player views. Polling runs while ≥1, so closing one window's toolbar
     /// doesn't freeze the player in another open window.
     private var viewerCount = 0
+    /// True while the user drags the scrubber, so the poll/ticker don't fight the thumb.
+    private var isScrubbing = false
+    /// Debounces volume API calls so dragging the slider doesn't flood the Web API (which lags).
+    private var volumeDebounce: Task<Void, Never>?
+    private var lastVolumeChange = Date.distantPast
 
     convenience init() {
         self.init(auth: SpotifyAuthService())
@@ -65,7 +71,7 @@ final class SpotifyPlayerModel: ObservableObject {
 
     private func teardownPolling() {
         pollTask?.cancel(); pollTask = nil
-        ticker?.invalidate(); ticker = nil
+        ticker?.cancel(); ticker = nil
     }
 
     // MARK: - Auth
@@ -88,6 +94,7 @@ final class SpotifyPlayerModel: ObservableObject {
         isLiked = false
         hasActiveDevice = true
         localProgressMs = 0
+        localVolumePercent = 0
         lastLikedTrackID = nil
         teardownPolling()
     }
@@ -101,13 +108,40 @@ final class SpotifyPlayerModel: ObservableObject {
     func next() { command { try await self.api.next() } }
     func previous() { command { try await self.api.previous() } }
 
-    func seek(toMs positionMs: Int) {
+    // Scrubbing: move the thumb locally during the drag; seek once on release (no immediate
+    // refresh, so the thumb doesn't snap back to a not-yet-updated server position).
+    func beginScrubbing() { isScrubbing = true }
+    func scrub(toMs positionMs: Int) { localProgressMs = positionMs }
+    func endScrubbing(toMs positionMs: Int) {
+        isScrubbing = false
         localProgressMs = positionMs
-        command { try await self.api.seek(toMs: positionMs) }
+        runDeviceCommand { try await self.api.seek(toMs: positionMs) }
     }
 
+    /// Optimistic + debounced: `localVolumePercent` updates immediately so the slider stays
+    /// smooth, while the API call is coalesced instead of firing on every pixel (which lags).
     func setVolume(_ percent: Int) {
-        command { try await self.api.setVolume(percent) }
+        localVolumePercent = percent
+        lastVolumeChange = Date()
+        volumeDebounce?.cancel()
+        volumeDebounce = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(220))
+            guard !Task.isCancelled, let self else { return }
+            await self.sendVolume(percent)
+        }
+    }
+
+    private func sendVolume(_ percent: Int) async {
+        do {
+            try await api.setVolume(percent)
+            hasActiveDevice = true
+        } catch SpotifyError.noActiveDevice {
+            hasActiveDevice = false
+        } catch SpotifyError.notAuthorized {
+            isAuthorized = false
+        } catch {
+            /* transient */
+        }
     }
 
     func toggleLike() {
@@ -121,10 +155,34 @@ final class SpotifyPlayerModel: ObservableObject {
 
     private func command(_ action: @escaping () async throws -> Void) {
         Task {
-            do { try await action(); hasActiveDevice = true; await refresh() }
-            catch SpotifyError.noActiveDevice { hasActiveDevice = false }
-            catch SpotifyError.notAuthorized { isAuthorized = false }
-            catch { /* transient; next poll reconciles */ }
+            do {
+                try await action()
+                hasActiveDevice = true
+                await refresh()
+            } catch SpotifyError.noActiveDevice {
+                hasActiveDevice = false
+            } catch SpotifyError.notAuthorized {
+                isAuthorized = false
+            } catch {
+                /* transient; next poll reconciles */
+            }
+        }
+    }
+
+    /// Like `command` but without the immediate `refresh()` — used for seek/volume so a local
+    /// optimistic value isn't overwritten by a server position that hasn't caught up yet.
+    private func runDeviceCommand(_ action: @escaping () async throws -> Void) {
+        Task {
+            do {
+                try await action()
+                hasActiveDevice = true
+            } catch SpotifyError.noActiveDevice {
+                hasActiveDevice = false
+            } catch SpotifyError.notAuthorized {
+                isAuthorized = false
+            } catch {
+                /* transient; next poll reconciles */
+            }
         }
     }
 
@@ -133,7 +191,13 @@ final class SpotifyPlayerModel: ObservableObject {
             let playback = try await api.currentPlayback()
             self.state = playback
             self.hasActiveDevice = playback != nil
-            self.localProgressMs = playback?.progressMs ?? 0
+            if !self.isScrubbing {
+                self.localProgressMs = playback?.progressMs ?? 0
+            }
+            // Don't yank the volume thumb back while the user is actively adjusting it.
+            if Date().timeIntervalSince(self.lastVolumeChange) > 1.5 {
+                self.localVolumePercent = playback?.volumePercent ?? 0
+            }
             if let id = playback?.trackID, id != lastLikedTrackID {
                 lastLikedTrackID = id
                 self.isLiked = (try? await api.isLiked(id)) ?? false
@@ -147,10 +211,12 @@ final class SpotifyPlayerModel: ObservableObject {
 
     /// Advances the local progress between polls for a smooth scrubber.
     private func startTicker() {
-        ticker?.invalidate()
-        ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            Task { @MainActor [weak self] in
-                guard let self, self.state?.isPlaying == true else { return }
+        ticker?.cancel()
+        ticker = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                guard let self else { return }
+                guard self.state?.isPlaying == true, !self.isScrubbing else { continue }
                 self.localProgressMs = min(self.localProgressMs + 1000, self.state?.durationMs ?? 0)
             }
         }
