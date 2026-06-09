@@ -19,6 +19,8 @@ struct InspectorAreaView: View {
     @AppSettings(\.developerSettings.showInternalDevelopmentInspector)
     var showInternalDevelopmentInspector
 
+    @StateObject private var claudeInfoModel = ClaudeInfoModel()
+
     init(viewModel: InspectorAreaViewModel) {
         self.viewModel = viewModel
         updateTabs()
@@ -45,17 +47,23 @@ struct InspectorAreaView: View {
     }
 
     var body: some View {
-        WorkspacePanelView(
-            viewModel: viewModel,
-            selectedTab: $viewModel.selectedTab,
-            tabItems: $viewModel.tabItems,
-            sidebarPosition: sidebarPosition
-        )
+        Group {
+            if workspace.workspaceMode == .agent {
+                ClaudeInfoInspectorView(model: claudeInfoModel)
+                    .onAppear { claudeInfoModel.start(session: workspace.claudeSession) }
+                    .onDisappear { claudeInfoModel.stop() }
+            } else {
+                WorkspacePanelView(
+                    viewModel: viewModel,
+                    selectedTab: $viewModel.selectedTab,
+                    tabItems: $viewModel.tabItems,
+                    sidebarPosition: sidebarPosition
+                )
+            }
+        }
         .formStyle(.grouped)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("inspector")
-        .onChange(of: showInternalDevelopmentInspector) { _, _ in
-            updateTabs()
-        }
+        .onChange(of: showInternalDevelopmentInspector) { _, _ in updateTabs() }
     }
 }

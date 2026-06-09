@@ -28,7 +28,6 @@ struct WorkspaceView: View {
     @EnvironmentObject private var utilityAreaViewModel: UtilityAreaViewModel
 
     @StateObject private var themeModel: ThemeModel = .shared
-    @StateObject private var claudeSession = ClaudeSession()
 
     @State private var showingAlert = false
     @State private var terminalCollapsed = true
@@ -148,7 +147,7 @@ struct WorkspaceView: View {
                         )
                     case .agent:
                         ClaudeAgentView(
-                            session: claudeSession,
+                            session: workspace.claudeSession,
                             workspaceURL: workspace.workspaceFileManager?.folderUrl
                         )
                         .padding(.horizontal, 14)

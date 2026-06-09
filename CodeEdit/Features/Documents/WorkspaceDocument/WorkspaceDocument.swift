@@ -45,6 +45,9 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
     var workspaceSettingsManager: CEWorkspaceSettings?
     var taskNotificationHandler: TaskNotificationHandler = TaskNotificationHandler()
 
+    /// The single claude Agent session for this workspace (shared by the Agent terminal and the Inspector).
+    lazy var claudeSession = ClaudeSession()
+
     var undoRegistration: UndoManagerRegistration = UndoManagerRegistration()
 
     var notificationPanel = NotificationPanelViewModel()
