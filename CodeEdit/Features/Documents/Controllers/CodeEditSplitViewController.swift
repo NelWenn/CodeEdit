@@ -9,7 +9,7 @@ import Cocoa
 import SwiftUI
 
 final class CodeEditSplitViewController: NSSplitViewController {
-    static let minSidebarWidth: CGFloat = 242
+    static let minSidebarWidth: CGFloat = 200
     /// Compact upper bound for the navigator so it reads like a normal IDE sidebar
     /// rather than taking over the window.
     static let maxSidebarWidth: CGFloat = 400
@@ -124,8 +124,17 @@ final class CodeEditSplitViewController: NSSplitViewController {
 
         guard let workspace else { return }
 
-        let savedWidth = workspace.getFromWorkspaceState(.splitViewWidth) as? CGFloat ?? Self.minSidebarWidth
-        splitView.setPosition(clampedNavigatorWidth(savedWidth), ofDividerAt: 0)
+        // Restore the saved navigator width only if it's within sane bounds; ignore stale
+        // oversized values (older builds could persist a runaway width) and fall back to the
+        // compact default so the sidebar never reopens dominating the window.
+        let savedWidth = workspace.getFromWorkspaceState(.splitViewWidth) as? CGFloat
+        let navigatorWidth: CGFloat
+        if let savedWidth, savedWidth <= Self.maxSidebarWidth {
+            navigatorWidth = max(savedWidth, Self.minSidebarWidth)
+        } else {
+            navigatorWidth = Self.minSidebarWidth
+        }
+        splitView.setPosition(navigatorWidth, ofDividerAt: 0)
 
         if let firstSplitView = splitViewItems.first {
             firstSplitView.isCollapsed = workspace.getFromWorkspaceState(
@@ -211,16 +220,14 @@ final class CodeEditSplitViewController: NSSplitViewController {
     /// Save the width of the inspector and navigator between sessions.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
-        guard let resizedDivider = notification.userInfo?["NSSplitViewDividerIndex"] as? Int else {
-            return
-        }
-
-        if resizedDivider == 0 {
-            let panel = splitView.subviews[0]
-            let width = panel.frame.size.width
-            if width > 0 {
-                workspace?.addToWorkspaceState(key: .splitViewWidth, value: width)
-            }
+        // Persist the navigator width on every resize. The `NSSplitViewDividerIndex` userInfo key
+        // is not reliably present (especially on macOS 26+), so gating on it meant the user's
+        // chosen width was never saved. Skip while the navigator is collapsed or mid-collapse.
+        guard let navigatorItem = splitViewItems.first, !navigatorItem.isCollapsed,
+              let navigatorView = splitView.subviews.first else { return }
+        let width = navigatorView.frame.size.width
+        if width >= Self.minSidebarWidth && width <= Self.maxSidebarWidth {
+            workspace?.addToWorkspaceState(key: .splitViewWidth, value: width)
         }
     }
 

@@ -11,8 +11,15 @@ import Security
 enum ClaudeUsageEndpointClient {
     enum ClientError: Error { case noToken, badResponse }
 
-    /// Reads the Claude Code OAuth access token from the macOS Keychain.
+    /// Cached so the Keychain is read at most once per launch (each read can prompt the user).
+    /// Cleared on a 401 so an expired token is re-read on the next request.
+    private static var cachedToken: String?
+
+    /// Reads the Claude Code OAuth access token from the macOS Keychain (cached after the first read).
     static func accessToken() -> String? {
+        if let cachedToken {
+            return cachedToken
+        }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: "Claude Code-credentials",
@@ -25,11 +32,14 @@ enum ClaudeUsageEndpointClient {
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
-        if let oauth = object["claudeAiOauth"] as? [String: Any],
-           let token = oauth["accessToken"] as? String {
-            return token
+        let token: String?
+        if let oauth = object["claudeAiOauth"] as? [String: Any] {
+            token = oauth["accessToken"] as? String
+        } else {
+            token = object["accessToken"] as? String
         }
-        return object["accessToken"] as? String
+        cachedToken = token
+        return token
     }
 
     static func fetchUsage() async throws -> ClaudeUsage {
@@ -38,9 +48,11 @@ enum ClaudeUsageEndpointClient {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         // NOTE: an anthropic-beta header returns 401; send Authorization only.
         let (data, response) = try await URLSession.shared.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw ClientError.badResponse
+        guard let http = response as? HTTPURLResponse else { throw ClientError.badResponse }
+        if http.statusCode == 401 {
+            cachedToken = nil // expired -> re-read the Keychain next time
         }
+        guard (200..<300).contains(http.statusCode) else { throw ClientError.badResponse }
         return try ClaudeUsage(endpointData: data)
     }
 }

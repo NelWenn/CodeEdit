@@ -3,22 +3,34 @@ import SwiftUI
 /// Model / effort menus + thinking indicator for the Agent inspector.
 struct ModelEffortPicker: View {
     @ObservedObject var model: ClaudeInfoModel
-    private let modelNames = ["opus", "sonnet", "haiku"]
-    private let effortLevels = ["low", "medium", "high", "xhigh", "max"]
+
+    private let modelOptions: [(value: String, label: String)] = [
+        ("opus", "Opus"),
+        ("sonnet", "Sonnet"),
+        ("haiku", "Haiku")
+    ]
+    /// Effort levels in increasing order, exactly as accepted by `claude --effort`.
+    private let effortOptions: [(value: String, label: String)] = [
+        ("low", "Low"),
+        ("medium", "Medium"),
+        ("high", "High"),
+        ("xhigh", "Extra High"),
+        ("max", "Max")
+    ]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             LabeledContent("Model") {
                 Menu(model.currentModel ?? "default") {
-                    ForEach(modelNames, id: \.self) { name in
-                        Button(name) { model.setModel(name) }
+                    ForEach(modelOptions, id: \.value) { option in
+                        Button(option.label) { model.setModel(option.value) }
                     }
                 }
             }
             LabeledContent("Effort") {
-                Menu(model.currentEffort ?? "default") {
-                    ForEach(effortLevels, id: \.self) { level in
-                        Button(level) { model.setEffort(level) }
+                Menu(effortLabel(model.currentEffort)) {
+                    ForEach(effortOptions, id: \.value) { option in
+                        Button(option.label) { model.setEffort(option.value) }
                     }
                 }
             }
@@ -26,8 +38,10 @@ struct ModelEffortPicker: View {
                 Text(model.liveState.thinkingEnabled == true ? "On" : "Off")
                     .foregroundStyle(.secondary)
             }
-            Text("Higher effort = more thinking. Effort applies to new sessions.")
-                .font(.caption).foregroundStyle(.tertiary)
         }
+    }
+
+    private func effortLabel(_ value: String?) -> String {
+        effortOptions.first { $0.value == value }?.label ?? (value ?? "default")
     }
 }
