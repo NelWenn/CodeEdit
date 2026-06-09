@@ -23,6 +23,9 @@ final class SpotifyPlayerModel: ObservableObject {
     private var pollTask: Task<Void, Never>?
     private var ticker: Timer?
     private var lastLikedTrackID: String?
+    /// Number of visible player views. Polling runs while ≥1, so closing one window's toolbar
+    /// doesn't freeze the player in another open window.
+    private var viewerCount = 0
 
     convenience init() {
         self.init(auth: SpotifyAuthService())
@@ -36,8 +39,20 @@ final class SpotifyPlayerModel: ObservableObject {
 
     // MARK: - Lifecycle
 
-    /// Begin polling `/me/player` (call when a player view appears).
+    /// Register a visible player view (call from `onAppear`) and begin polling if needed.
     func start() {
+        viewerCount += 1
+        beginPollingIfNeeded()
+    }
+
+    /// Unregister a player view (call from `onDisappear`); tears down polling once none remain.
+    func stop() {
+        viewerCount = max(0, viewerCount - 1)
+        guard viewerCount == 0 else { return }
+        teardownPolling()
+    }
+
+    private func beginPollingIfNeeded() {
         guard pollTask == nil, isAuthorized else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
@@ -48,7 +63,7 @@ final class SpotifyPlayerModel: ObservableObject {
         startTicker()
     }
 
-    func stop() {
+    private func teardownPolling() {
         pollTask?.cancel(); pollTask = nil
         ticker?.invalidate(); ticker = nil
     }
@@ -60,7 +75,7 @@ final class SpotifyPlayerModel: ObservableObject {
             do {
                 try await auth.authorize()
                 isAuthorized = auth.isAuthorized
-                start()
+                beginPollingIfNeeded()
                 await refresh()
             } catch { /* user cancelled or failed; stay disconnected */ }
         }
@@ -74,7 +89,7 @@ final class SpotifyPlayerModel: ObservableObject {
         hasActiveDevice = true
         localProgressMs = 0
         lastLikedTrackID = nil
-        stop()
+        teardownPolling()
     }
 
     // MARK: - Commands (optimistic, then reconcile on next poll)

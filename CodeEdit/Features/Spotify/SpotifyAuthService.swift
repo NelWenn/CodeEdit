@@ -79,11 +79,18 @@ final class SpotifyAuthService: NSObject {
 
     /// A valid access token, refreshing first if it is expiring.
     func validAccessToken() async throws -> String {
-        guard var current = tokens else { throw SpotifyError.notAuthorized }
+        guard let current = tokens else { throw SpotifyError.notAuthorized }
         if current.shouldRefresh() {
-            current = try await refresh(current)
+            return try await refresh(current).accessToken
         }
         return current.accessToken
+    }
+
+    /// Force a refresh regardless of expiry — used after a 401 (token invalidated server-side
+    /// before its clock expiry).
+    func forceRefresh() async throws {
+        guard let current = tokens else { throw SpotifyError.notAuthorized }
+        _ = try await refresh(current)
     }
 
     // MARK: - Token endpoints

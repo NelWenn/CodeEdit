@@ -52,6 +52,7 @@ final class SpotifyAPIClient {
         case 200...299:
             return data
         case 401 where !isRetry:
+            do { try await auth.forceRefresh() } catch { throw SpotifyError.notAuthorized }
             return try await send(build, isRetry: true)
         case 404:
             throw SpotifyError.noActiveDevice
