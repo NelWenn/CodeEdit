@@ -5,8 +5,9 @@
 
 import SwiftUI
 
-/// The Agent-mode inspector: a native icon tab bar (matching the rest of the inspector) switching
-/// between the live Info panel and the project's session list.
+/// The Agent-mode inspector: a native icon tab bar switching between the live Info panel and the
+/// project's session list. Translucent (behind-window) background like the project navigator, with
+/// the tab bar laid out above the content (not as a scroll inset) so content never bleeds into it.
 struct ClaudeAgentInspectorView: View {
     @ObservedObject var infoModel: ClaudeInfoModel
     @ObservedObject var manager: ClaudeSessionManager
@@ -36,25 +37,26 @@ struct ClaudeAgentInspectorView: View {
     @State private var selection: Tab = .info
 
     var body: some View {
-        Group {
-            switch selection {
-            case .info:
-                ClaudeInfoInspectorView(model: infoModel)
-            case .sessions:
-                ClaudeSessionsListView(manager: manager, workspaceURL: workspaceURL)
+        VStack(spacing: 0) {
+            tabBar
+            Divider()
+            Group {
+                switch selection {
+                case .info:
+                    ClaudeInfoInspectorView(model: infoModel)
+                case .sessions:
+                    ClaudeSessionsListView(manager: manager, workspaceURL: workspaceURL)
+                }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .safeAreaInset(edge: .top, spacing: 0) {
-            VStack(spacing: 0) {
-                Divider()
-                tabBar
-                Divider()
-            }
-        }
+        // Translucent material like the navigator (left sidebar): blurs the desktop behind the
+        // window, and being behind-window it does not show the in-window content scrolling under it.
+        .background(EffectView(.sidebar, blendingMode: .behindWindow).ignoresSafeArea())
     }
 
-    /// Icon tab bar styled like the inspector's own `WorkspacePanelTabBar` (top position).
+    /// Icon tab bar with no opaque fill — it shows the translucent material behind it, so it is the
+    /// exact same colour as the panel background.
     private var tabBar: some View {
         HStack(spacing: 0) {
             ForEach(Tab.allCases) { tab in
@@ -75,6 +77,5 @@ struct ClaudeAgentInspectorView: View {
         }
         .frame(maxWidth: .infinity, idealHeight: 27)
         .fixedSize(horizontal: false, vertical: true)
-        .background(EffectView(.headerView))
     }
 }
