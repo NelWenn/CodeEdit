@@ -8,19 +8,17 @@ import SwiftUI
 /// Toolbar mini-player. Shows now-playing + transport; a click opens the extended popover.
 struct SpotifyPlayerView: View {
     @ObservedObject private var model = SpotifyPlayerModel.shared
+    @Environment(\.colorScheme)
+    private var colorScheme
     @State private var showPopover = false
+    @State private var isHoveringPlayer = false
 
     var body: some View {
         Group {
             if model.isAuthorized {
                 player
             } else {
-                Button {
-                    model.connect()
-                } label: {
-                    Label("Connect Spotify", systemImage: "music.note")
-                }
-                .buttonStyle(.borderless)
+                SpotifyConnectButton { model.connect() }
             }
         }
         .onAppear { model.start() }
@@ -29,6 +27,12 @@ struct SpotifyPlayerView: View {
 
     private var player: some View {
         HStack(spacing: 8) {
+            Image("SpotifyLogo")
+                .resizable()
+                .renderingMode(.original)
+                .aspectRatio(contentMode: .fit)
+                .frame(width: 20, height: 20)
+                .accessibilityLabel("Spotify")
             artwork
             VStack(alignment: .leading, spacing: 0) {
                 Text(model.state?.title ?? "Not playing")
@@ -40,26 +44,32 @@ struct SpotifyPlayerView: View {
                     .lineLimit(1)
             }
             .frame(minWidth: 90, alignment: .leading)
-            Button { model.previous() } label: { Image(systemName: "backward.fill") }
-            Button {
+            SpotifyTransportButton(systemName: "backward.fill") { model.previous() }
+            SpotifyTransportButton(
+                systemName: model.state?.isPlaying == true ? "pause.fill" : "play.fill"
+            ) {
                 model.togglePlayPause()
-            } label: {
-                Image(systemName: model.state?.isPlaying == true ? "pause.fill" : "play.fill")
             }
-            Button { model.next() } label: { Image(systemName: "forward.fill") }
+            SpotifyTransportButton(systemName: "forward.fill") { model.next() }
         }
-        .buttonStyle(.icon(size: CGFloat(22)))
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        .frame(maxWidth: 360)
+        .frame(maxWidth: 380)
         .background {
-            if #available(macOS 26, *) {
-                GlassEffectView().clipShape(Capsule())
-            } else {
-                Capsule().fill(.quaternary)
+            ZStack {
+                if #available(macOS 26, *) {
+                    GlassEffectView().clipShape(Capsule()).clipped()
+                } else {
+                    Capsule().fill(.quaternary)
+                }
+                Capsule()
+                    .fill(Color(nsColor: colorScheme == .dark ? .white : .black))
+                    .opacity(isHoveringPlayer ? 0.06 : 0)
             }
         }
         .contentShape(Capsule())
+        .onHover { isHoveringPlayer = $0 }
+        .animation(.easeInOut(duration: 0.08), value: isHoveringPlayer)
         .onTapGesture { showPopover = true }
         .popover(isPresented: $showPopover, arrowEdge: .bottom) {
             SpotifyPlayerPopover(model: model)
@@ -74,12 +84,80 @@ struct SpotifyPlayerView: View {
             } placeholder: {
                 Color.secondary.opacity(0.2)
             }
-            .frame(width: 22, height: 22)
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .frame(width: 26, height: 26)
+            .clipShape(RoundedRectangle(cornerRadius: 6))
         } else {
             Image(systemName: "music.note")
-                .frame(width: 22, height: 22)
+                .font(.system(size: 13))
+                .frame(width: 26, height: 26)
                 .foregroundStyle(.secondary)
+                .background(
+                    RoundedRectangle(cornerRadius: 6).fill(Color.secondary.opacity(0.15))
+                )
         }
+    }
+}
+
+/// Signed-out call-to-action: Spotify logo + label in a rounded Liquid Glass button with a hover effect.
+private struct SpotifyConnectButton: View {
+    let action: () -> Void
+    @Environment(\.colorScheme)
+    private var colorScheme
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image("SpotifyLogo")
+                    .resizable()
+                    .renderingMode(.original)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 17, height: 17)
+                Text("Connect Spotify")
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .background {
+            ZStack {
+                if #available(macOS 26, *) {
+                    GlassEffectView().clipShape(Capsule()).clipped()
+                } else {
+                    Capsule().fill(.quaternary)
+                }
+                Capsule()
+                    .fill(Color(nsColor: colorScheme == .dark ? .white : .black))
+                    .opacity(isHovering ? 0.08 : 0)
+            }
+        }
+        .onHover { isHovering = $0 }
+        .animation(.easeInOut(duration: 0.08), value: isHovering)
+        .help("Connect your Spotify account")
+    }
+}
+
+/// Transport control with a larger, accessible icon and a subtle circular hover highlight.
+private struct SpotifyTransportButton: View {
+    let systemName: String
+    let action: () -> Void
+    @Environment(\.colorScheme)
+    private var colorScheme
+    @State private var isHovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+        }
+        .buttonStyle(.icon(size: CGFloat(26)))
+        .background {
+            Circle()
+                .fill(Color(nsColor: colorScheme == .dark ? .white : .black))
+                .opacity(isHovering ? 0.10 : 0)
+        }
+        .onHover { isHovering = $0 }
+        .animation(.easeInOut(duration: 0.08), value: isHovering)
     }
 }

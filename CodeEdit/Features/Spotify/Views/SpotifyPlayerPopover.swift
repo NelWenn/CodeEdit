@@ -9,18 +9,35 @@ import SwiftUI
 struct SpotifyPlayerPopover: View {
     @ObservedObject var model: SpotifyPlayerModel
 
+    @State private var isHoveringLike = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(spacing: 8) {
+                Image("SpotifyLogo")
+                    .resizable()
+                    .renderingMode(.original)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 20, height: 20)
+                    .accessibilityLabel("Spotify")
                 Text(model.state?.title ?? "Not playing").font(.headline).lineLimit(1)
                 Spacer()
                 Button {
                     model.toggleLike()
                 } label: {
                     Image(systemName: model.isLiked ? "heart.fill" : "heart")
+                        .font(.system(size: 15))
                         .foregroundStyle(model.isLiked ? .green : .secondary)
+                        .frame(width: 26, height: 26)
+                        .background {
+                            Circle()
+                                .fill(.primary)
+                                .opacity(isHoveringLike ? 0.08 : 0)
+                        }
                 }
                 .buttonStyle(.borderless)
+                .onHover { isHoveringLike = $0 }
+                .animation(.easeInOut(duration: 0.08), value: isHoveringLike)
                 .help("Like")
             }
 
