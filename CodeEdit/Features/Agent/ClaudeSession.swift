@@ -25,6 +25,15 @@ final class ClaudeSession: ObservableObject {
         return view
     }
 
+    /// Whether the claude process is currently running.
+    var isRunning: Bool { terminalView?.process.running ?? false }
+
+    /// Sends raw text (e.g. a slash command) to the running claude TUI.
+    func send(_ text: String) {
+        guard let view = terminalView, view.process.running else { return }
+        view.process.send(data: Array(text.utf8)[...])
+    }
+
     private func launchClaudeIfNeeded(in view: CELocalShellTerminalView) {
         guard !hasLaunchedClaude else { return }
         hasLaunchedClaude = true
