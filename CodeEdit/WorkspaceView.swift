@@ -146,14 +146,20 @@ struct WorkspaceView: View {
                             focus: $focusedEditor
                         )
                     case .agent:
-                        ClaudeAgentView(
-                            session: workspace.claudeSession,
-                            workspaceURL: workspace.workspaceFileManager?.folderUrl
-                        )
-                        .id(workspace.claudeSession.generation)
+                        let manager = workspace.claudeSessionManager
+                        Group {
+                            if let active = manager.activeSession {
+                                ClaudeAgentView(
+                                    session: active,
+                                    workspaceURL: workspace.workspaceFileManager?.folderUrl
+                                )
+                                .id("\(active.id.uuidString)-\(active.generation)")
+                            }
+                        }
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(EffectView(.contentBackground))
+                        .onAppear { manager.ensureAtLeastOneTab() }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)

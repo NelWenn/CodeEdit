@@ -45,8 +45,9 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
     var workspaceSettingsManager: CEWorkspaceSettings?
     var taskNotificationHandler: TaskNotificationHandler = TaskNotificationHandler()
 
-    /// The single claude Agent session for this workspace (shared by the Agent terminal and the Inspector).
-    let claudeSession = ClaudeSession()
+    /// Owns the open Claude Agent tabs for this workspace — each a tabbed session shared by the
+    /// Agent terminal and the Inspector.
+    let claudeSessionManager = ClaudeSessionManager()
 
     var undoRegistration: UndoManagerRegistration = UndoManagerRegistration()
 
@@ -65,12 +66,14 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
             }
             .store(in: &cancellables)
 
-        // Re-publish claude session changes (e.g. restart generation) so views that recreate
-        // the Agent terminal by `generation` re-render.
-        claudeSession.objectWillChange
+        // Re-publish Claude tab changes (open/close/activate/title/generation) and persist the
+        // open tabs so they restore on relaunch. The `.receive(on:)` hop means the @Published
+        // values are already applied when we read them for persistence.
+        claudeSessionManager.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+                self?.persistClaudeTabs()
             }
             .store(in: &cancellables)
     }
@@ -97,6 +100,12 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
         } else {
             workspaceState.removeValue(forKey: key.rawValue)
         }
+    }
+
+    /// Persist the open Claude tab ids + active index so they restore on relaunch.
+    private func persistClaudeTabs() {
+        addToWorkspaceState(key: .claudeOpenSessions, value: claudeSessionManager.openSessionIds)
+        addToWorkspaceState(key: .claudeActiveSessionIndex, value: claudeSessionManager.activeIndex)
     }
 
     // MARK: NSDocument
@@ -192,6 +201,16 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
         if let raw = getFromWorkspaceState(.workspaceMode) as? String,
            let mode = WorkspaceMode(rawValue: raw) {
             workspaceMode = mode
+        }
+
+        if let ids = getFromWorkspaceState(.claudeOpenSessions) as? [String], !ids.isEmpty {
+            let reader = ClaudeSessionsReader()
+            let titles = Dictionary(
+                uniqueKeysWithValues: reader.readSessions(for: url).map { ($0.id, $0.title) }
+            )
+            let sessions = ids.map { (id: $0, title: titles[$0] ?? "Session") }
+            let activeIndex = getFromWorkspaceState(.claudeActiveSessionIndex) as? Int ?? 0
+            claudeSessionManager.restore(sessions: sessions, activeIndex: activeIndex)
         }
     }
 

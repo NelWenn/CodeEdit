@@ -6,31 +6,57 @@
 import AppKit
 import SwiftTerm
 
-/// Owns the long-lived `claude` terminal for a workspace so the session survives
-/// toggling between Editor and Agent modes.
-final class ClaudeSession: ObservableObject {
+/// Owns one long-lived `claude` terminal for a single Agent tab. The session survives toggling
+/// between Editor and Agent modes and switching between tabs (the process runs independently of
+/// view attachment).
+final class ClaudeSession: ObservableObject, Identifiable {
+    /// Stable tab identity (for SwiftUI `id()` and manager lookup).
+    let id = UUID()
+    /// The Claude session UUID this tab runs (the `.jsonl` filename stem).
+    let claudeSessionId: String
+    /// Tab label, shown in the tab bar.
+    @Published private(set) var title: String
     /// Bumped on restart so the SwiftUI Agent view recreates the terminal.
     @Published private(set) var generation = 0
 
     private var terminalView: CELocalShellTerminalView?
     private var hasLaunchedClaude = false
-    /// After a restart, relaunch with `claude --continue` to resume the same conversation.
-    private var continueConversation = false
-    /// Model to force on relaunch (`--continue` otherwise keeps the conversation's model).
+    /// Model/effort to force on the next launch (e.g. resuming with the current settings).
     private var relaunchModel: String?
-    /// Effort to force on relaunch (covers session-only values like `ultracode`).
     private var relaunchEffort: String?
+    private let reader = ClaudeSessionsReader()
 
-    /// Returns the existing terminal view, or creates one rooted at `workspaceURL`,
-    /// starts the login shell, and launches the Claude Code CLI inside it.
+    /// A fresh session with a newly-generated Claude session id.
+    init(title: String = "New Session") {
+        self.claudeSessionId = UUID().uuidString.lowercased()
+        self.title = title
+    }
+
+    /// A session bound to an existing Claude session id (resumed from the list or restored).
+    init(resuming claudeSessionId: String, title: String) {
+        self.claudeSessionId = claudeSessionId
+        self.title = title
+    }
+
+    func setTitle(_ newTitle: String) {
+        guard newTitle != title else { return }
+        title = newTitle
+    }
+
+    /// Set the model/effort to apply on the next (first) launch, without relaunching now.
+    func prepareLaunch(model: String?, effort: String?) {
+        relaunchModel = model
+        relaunchEffort = effort
+    }
+
+    /// Returns the existing terminal view, or creates one rooted at `workspaceURL`, starts the
+    /// login shell, and launches `claude` (fresh or resuming this tab's session).
     func makeOrReuseTerminal(workspaceURL: URL?) -> CELocalShellTerminalView {
-        if let terminalView {
-            return terminalView
-        }
+        if let terminalView { return terminalView }
         let view = CELocalShellTerminalView(frame: .zero)
         view.startProcess(workspaceURL: workspaceURL)
         terminalView = view
-        launchClaudeIfNeeded(in: view)
+        launchClaudeIfNeeded(in: view, workspaceURL: workspaceURL)
         return view
     }
 
@@ -43,43 +69,46 @@ final class ClaudeSession: ObservableObject {
         view.process.send(data: Array(text.utf8)[...])
     }
 
-    /// Restarts the claude session, continuing the same conversation. Used after a model/effort
-    /// change (already written to `~/.claude/settings.json`) so the new setting takes effect.
-    /// Terminates the current process and recreates the terminal (the bumped `generation` makes
-    /// the SwiftUI Agent view rebuild it), relaunching `claude --continue` which re-reads
-    /// settings.json and resumes the conversation.
+    /// Relaunch this tab (e.g. after a model/effort change), resuming the same conversation.
     func restart(model: String?, effort: String?) {
         relaunchModel = model
         relaunchEffort = effort
         terminalView?.process.terminate()
         terminalView = nil
         hasLaunchedClaude = false
-        continueConversation = true
         generation += 1
     }
 
-    private func launchClaudeIfNeeded(in view: CELocalShellTerminalView) {
+    /// Terminate this tab's process (on tab close). The session stays on disk and is resumable.
+    func terminate() {
+        terminalView?.process.terminate()
+        terminalView = nil
+    }
+
+    private func launchClaudeIfNeeded(in view: CELocalShellTerminalView, workspaceURL: URL?) {
         guard !hasLaunchedClaude else { return }
         hasLaunchedClaude = true
-        var command = "claude"
-        if continueConversation { command += " --continue" }
-        // `--continue` keeps the conversation's model/effort, so force them explicitly.
-        if let relaunchModel, !relaunchModel.isEmpty { command += " --model \(relaunchModel)" }
-        if let relaunchEffort, !relaunchEffort.isEmpty {
-            if relaunchEffort == "ultracode" {
-                // `ultracode` is not a --effort value (claude rejects it); it's a session setting
-                // (xhigh effort + dynamic-workflow orchestration) set via --settings.
-                command += " --settings '{\"ultracode\": true}'"
-            } else {
-                command += " --effort \(relaunchEffort)"
-            }
-        }
-        command += "\n"
+        let resume = sessionFileExists(workspaceURL: workspaceURL)
+        let command = Self.launchCommand(
+            sessionId: claudeSessionId,
+            resume: resume,
+            model: relaunchModel,
+            effort: relaunchEffort
+        ) + "\n"
         // Let the login shell finish initializing (PATH, rc files) before running claude.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak view] in
             guard let view, view.process.running else { return }
             view.process.send(data: Array(command.utf8)[...])
         }
+    }
+
+    /// True when this tab's session already has a `.jsonl` on disk (so we `--resume` it rather
+    /// than starting it with `--session-id`).
+    private func sessionFileExists(workspaceURL: URL?) -> Bool {
+        guard let workspaceURL else { return false }
+        let file = reader.sessionsDirectory(for: workspaceURL)
+            .appendingPathComponent("\(claudeSessionId).jsonl")
+        return FileManager.default.fileExists(atPath: file.path(percentEncoded: false))
     }
 }
 

@@ -16,4 +16,6 @@ enum WorkspaceStateKey: String {
     case inspectorCollapsed
     case toolbarCollapsed
     case workspaceMode
+    case claudeOpenSessions
+    case claudeActiveSessionIndex
 }

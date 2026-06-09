@@ -50,7 +50,10 @@ struct InspectorAreaView: View {
         Group {
             if workspace.workspaceMode == .agent {
                 ClaudeInfoInspectorView(model: claudeInfoModel)
-                    .onAppear { claudeInfoModel.start(session: workspace.claudeSession) }
+                    .onAppear {
+                        workspace.claudeSessionManager.ensureAtLeastOneTab()
+                        claudeInfoModel.start(session: workspace.claudeSessionManager.activeSession)
+                    }
                     .onDisappear { claudeInfoModel.stop() }
             } else {
                 WorkspacePanelView(
