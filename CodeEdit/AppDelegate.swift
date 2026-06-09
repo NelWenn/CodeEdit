@@ -58,10 +58,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
                 self.handleOpen()
             }
         }
+        DiscordPresenceManager.shared.start()
     }
 
     func applicationWillTerminate(_ aNotification: Notification) {
-
+        DiscordPresenceManager.shared.stop()
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
