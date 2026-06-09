@@ -70,7 +70,9 @@ struct ClaudeSessionsReader {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
         let data = (try? handle.read(upToCount: 256 * 1024)) ?? Data()
-        guard let text = String(data: data, encoding: .utf8) else { return nil }
+        // `String(decoding:as:)` substitutes U+FFFD for an invalid/truncated multi-byte
+        // sequence at the 256 KB cut instead of returning nil (which would drop a valid title).
+        let text = String(decoding: data, as: UTF8.self)
 
         var firstUserText: String?
         for line in text.split(separator: "\n") {
@@ -110,15 +112,19 @@ struct ClaudeSessionsReader {
         return nil
     }
 
-    private static func truncate(_ text: String, max: Int = 60) -> String {
+    private static func truncate(_ text: String, limit: Int = 60) -> String {
         let oneLine = text.replacingOccurrences(of: "\n", with: " ")
-        if oneLine.count <= max { return oneLine }
-        return String(oneLine.prefix(max)).trimmingCharacters(in: .whitespaces) + "…"
+        if oneLine.count <= limit { return oneLine }
+        return String(oneLine.prefix(limit)).trimmingCharacters(in: .whitespaces) + "…"
     }
 
-    static func fallbackTitle(for date: Date) -> String {
+    private static let fallbackFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, HH:mm"
-        return "Session — \(formatter.string(from: date))"
+        return formatter
+    }()
+
+    private static func fallbackTitle(for date: Date) -> String {
+        "Session — \(fallbackFormatter.string(from: date))"
     }
 }

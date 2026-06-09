@@ -64,4 +64,36 @@ final class ClaudeSessionsReaderTests: XCTestCase {
         let reader = ClaudeSessionsReader(projectsBaseURL: base)
         XCTAssertEqual(reader.readSessions(for: URL(fileURLWithPath: "/tmp/none")).count, 0)
     }
+
+    func testDerivesTitleFromArrayOfTextBlocks() throws {
+        let base = try makeTempProjectsDir()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let cwd = URL(fileURLWithPath: "/tmp/proj-blocks")
+        let dir = base.appendingPathComponent(
+            ClaudeSessionsReader.encodedProjectDir(for: cwd), isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let id = "dddddddd-0000-0000-0000-000000000004"
+        try ("{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":" +
+             "[{\"type\":\"text\",\"text\":\"Help me refactor this module\"}]}}\n")
+            .write(to: dir.appendingPathComponent("\(id).jsonl"), atomically: true, encoding: .utf8)
+        let sessions = ClaudeSessionsReader(projectsBaseURL: base).readSessions(for: cwd)
+        XCTAssertEqual(sessions.first?.title, "Help me refactor this module")
+    }
+
+    func testLongTitleIsTruncatedWithEllipsis() throws {
+        let base = try makeTempProjectsDir()
+        defer { try? FileManager.default.removeItem(at: base) }
+        let cwd = URL(fileURLWithPath: "/tmp/proj-trunc")
+        let dir = base.appendingPathComponent(
+            ClaudeSessionsReader.encodedProjectDir(for: cwd), isDirectory: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let id = "eeeeeeee-0000-0000-0000-000000000005"
+        let longText = String(repeating: "a", count: 100)
+        try ("{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"\(longText)\"}}\n")
+            .write(to: dir.appendingPathComponent("\(id).jsonl"), atomically: true, encoding: .utf8)
+        let title = ClaudeSessionsReader(projectsBaseURL: base).readSessions(for: cwd).first?.title
+        XCTAssertNotNil(title)
+        XCTAssertTrue(title?.hasSuffix("…") ?? false)
+        XCTAssertEqual(title?.count, 61) // 60 chars + ellipsis
+    }
 }
