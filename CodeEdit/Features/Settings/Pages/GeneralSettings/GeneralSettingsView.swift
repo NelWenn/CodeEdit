@@ -70,6 +70,15 @@ struct GeneralSettingsView: View {
                 // TODO: Uncomment when production build is released.
                 // prereleaseToggle
             }
+            Section {
+                discordRichPresenceToggle
+            } header: {
+                Text("Discord")
+            } footer: {
+                Text("Show your current project and git branch on your Discord profile (never file names).")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }
@@ -364,6 +373,13 @@ private extension GeneralSettingsView {
 
     var revealFileOnFocusChangeToggle: some View {
         Toggle("Automatically reveal in project navigator", isOn: $settings.revealFileOnFocusChange)
+    }
+
+    var discordRichPresenceToggle: some View {
+        Toggle("Discord Rich Presence", isOn: $settings.discordRichPresenceEnabled)
+            .onChange(of: settings.discordRichPresenceEnabled) { _, _ in
+                DiscordPresenceManager.shared.settingChanged()
+            }
     }
 
     private static let formatter = configure(DateFormatter()) {
