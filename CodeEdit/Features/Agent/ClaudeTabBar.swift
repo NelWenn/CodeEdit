@@ -5,8 +5,9 @@
 
 import SwiftUI
 
-/// Tab strip atop the Agent area, styled like CodeEdit's editor tab bar: one tab per open Claude
-/// session (active tab raised on the content material), plus a trailing `+` to open a new one.
+/// Tab strip atop the Agent area, styled exactly like CodeEdit's editor tab bar: on macOS 26+
+/// the tabs are Liquid Glass capsules (reusing `EditorTabBackground` / `GlassEffectView`), with a
+/// trailing `+` to open a new session.
 struct ClaudeTabBar: View {
     @ObservedObject var manager: ClaudeSessionManager
 
@@ -16,15 +17,27 @@ struct ClaudeTabBar: View {
     @State private var hoveredTab: UUID?
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 0) {
+                HStack(spacing: Bool.tahoe ? 4 : 0) {
                     ForEach(manager.tabs) { session in
                         tab(session)
                     }
                 }
+                .padding(Bool.tahoe ? 3 : 0)
             }
-            Divider()
+            .if(.tahoe) {
+                if #available(macOS 26.0, *) {
+#if compiler(>=6.2)
+                    $0.background(GlassEffectView(tintColor: .tertiarySystemFill))
+                        .clipShape(Capsule())
+                        .clipped()
+#else
+                    $0
+#endif
+                }
+            }
+
             Button {
                 manager.newTab()
             } label: {
@@ -34,8 +47,9 @@ struct ClaudeTabBar: View {
             .help("New Claude session")
         }
         .frame(height: Self.height)
-        .background(EffectView(.headerView))
-        .overlay(alignment: .bottom) { Divider() }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .environment(\.isActiveEditor, true)
     }
 
     @ViewBuilder
@@ -43,13 +57,16 @@ struct ClaudeTabBar: View {
         let isActive = manager.activeTabID == session.id
         let isHovering = hoveredTab == session.id
         HStack(spacing: 0) {
+            if !Bool.tahoe {
+                EditorTabDivider().opacity(isActive ? 0 : 1)
+            }
             ZStack {
                 Text(session.title)
                     .font(.system(size: 11))
                     .lineLimit(1)
                     .truncationMode(.tail)
                     .frame(maxWidth: .infinity)
-                    .padding(.horizontal, 24)
+                    .padding(.horizontal, 22)
                 HStack {
                     Button {
                         manager.closeTab(session.id)
@@ -64,15 +81,19 @@ struct ClaudeTabBar: View {
                 }
                 .padding(.leading, 4)
             }
-            .frame(width: 150)
-            Divider().opacity(isActive ? 0 : 1)
+            .frame(width: 140)
+            if !Bool.tahoe {
+                EditorTabDivider().opacity(isActive ? 0 : 1)
+            }
         }
         .frame(height: Self.height)
+        .foregroundStyle(isActive ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
         .background {
-            if isActive {
-                EffectView(.contentBackground)
-            } else if isHovering {
-                Color(nsColor: .controlColor).opacity(0.4)
+            EditorTabBackground(isActive: isActive, isPressing: false, isDragging: false)
+        }
+        .if(.tahoe) {
+            if #available(macOS 26, *) {
+                $0.clipShape(Capsule()).clipped().containerShape(Capsule())
             }
         }
         .contentShape(Rectangle())

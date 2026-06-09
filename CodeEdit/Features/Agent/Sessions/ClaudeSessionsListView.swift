@@ -5,9 +5,9 @@
 
 import SwiftUI
 
-/// Lists the project's past Claude sessions. Clicking opens in the current tab; the context
-/// menu offers a new tab. Defaults to the current tab. Styled like CodeEdit's navigator: a
-/// sidebar list with a bottom action/filter toolbar.
+/// Lists the project's past Claude sessions, styled like CodeEdit's project navigator: a sidebar
+/// list with a bottom filter toolbar (reusing `PaneTextField`). Clicking opens in the current tab;
+/// the context menu offers a new tab.
 struct ClaudeSessionsListView: View {
     @ObservedObject var manager: ClaudeSessionManager
     let workspaceURL: URL?
@@ -76,9 +76,9 @@ struct ClaudeSessionsListView: View {
         }
     }
 
-    /// Bottom toolbar styled like CodeEdit's navigator/utility pane toolbars.
+    /// Bottom toolbar mirroring `ProjectNavigatorToolbarBottom` (new-session button + filter field).
     private var bottomBar: some View {
-        HStack(spacing: 2) {
+        HStack(spacing: 5) {
             Button {
                 manager.newTab()
             } label: {
@@ -91,20 +91,20 @@ struct ClaudeSessionsListView: View {
                 Image(systemName: "arrow.clockwise")
             }
             .help("Refresh sessions")
-            Divider().frame(height: 14).padding(.horizontal, 3)
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 11))
-                .foregroundStyle(.tertiary)
-            TextField("Filter", text: $query)
-                .textFieldStyle(.plain)
-                .font(.system(size: 11))
+            PaneTextField(
+                "Filter",
+                text: $query,
+                clearable: true,
+                hasValue: !query.isEmpty
+            )
         }
-        .buttonStyle(.icon(size: 24))
+        .buttonStyle(.icon)
         .padding(.horizontal, 5)
-        .padding(.vertical, 6)
-        .frame(height: 28)
-        .background(EffectView(.contentBackground))
-        .overlay(alignment: .top) { Divider() }
+        .frame(height: 28, alignment: .center)
+        .frame(maxWidth: .infinity)
+        .overlay(alignment: .top) {
+            Divider()
+        }
     }
 
     private func open(_ session: ClaudeSessionInfo, mode: ClaudeSessionManager.OpenMode) {
