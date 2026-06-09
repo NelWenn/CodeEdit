@@ -83,55 +83,50 @@ struct TerminalEmulatorView: NSViewRepresentable {
         terminalSettings.optionAsMeta
     }
 
+    private var isDarkAppearance: Bool {
+        NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+    }
+
+    /// Index of the theme matching the app's current light/dark appearance, so the terminal
+    /// follows the editor (a light theme yields a light terminal) instead of always using the
+    /// raw `selectedTheme`, which could be a dark theme even in light mode.
+    private var activeThemeIndex: Int? {
+        let selected = Settings[\.theme].matchAppearance
+            ? (isDarkAppearance ? themeModel.selectedDarkTheme : themeModel.selectedLightTheme)
+            : themeModel.selectedTheme
+        guard let selected else { return nil }
+        return themeModel.themes.firstIndex(of: selected)
+    }
+
     /// Returns the mapped array of `SwiftTerm.Color` objects of ANSI Colors
     private var colors: [SwiftTerm.Color] {
-        if let selectedTheme = Settings[\.theme].matchAppearance && Settings[\.terminal].darkAppearance
-            ? themeModel.selectedDarkTheme
-            : themeModel.selectedTheme,
-           let index = themeModel.themes.firstIndex(of: selectedTheme) {
-            return themeModel.themes[index].terminal.ansiColors.map { color in
-                SwiftTerm.Color(hex: color)
-            }
-        }
-        return []
+        guard let index = activeThemeIndex else { return [] }
+        return themeModel.themes[index].terminal.ansiColors.map { SwiftTerm.Color(hex: $0) }
     }
 
     /// Returns the `cursor` color of the selected theme
     private var cursorColor: NSColor {
-        if let selectedTheme = Settings[\.theme].matchAppearance && Settings[\.terminal].darkAppearance
-            ? themeModel.selectedDarkTheme
-            : themeModel.selectedTheme,
-           let index = themeModel.themes.firstIndex(of: selectedTheme) {
-            return NSColor(themeModel.themes[index].terminal.cursor.swiftColor)
-        }
-        return NSColor(.accentColor)
+        guard let index = activeThemeIndex else { return NSColor(.accentColor) }
+        return NSColor(themeModel.themes[index].terminal.cursor.swiftColor)
     }
 
     /// Returns the `selection` color of the selected theme
     private var selectionColor: NSColor {
-        if let selectedTheme = Settings[\.theme].matchAppearance && Settings[\.terminal].darkAppearance
-            ? themeModel.selectedDarkTheme
-            : themeModel.selectedTheme,
-           let index = themeModel.themes.firstIndex(of: selectedTheme) {
-            return NSColor(themeModel.themes[index].terminal.selection.swiftColor)
-        }
-        return NSColor(.accentColor)
+        guard let index = activeThemeIndex else { return NSColor(.accentColor) }
+        return NSColor(themeModel.themes[index].terminal.selection.swiftColor)
     }
 
     /// Returns the `text` color of the selected theme
     private var textColor: NSColor {
-        if let selectedTheme = Settings[\.theme].matchAppearance && Settings[\.terminal].darkAppearance
-            ? themeModel.selectedDarkTheme
-            : themeModel.selectedTheme,
-           let index = themeModel.themes.firstIndex(of: selectedTheme) {
-            return NSColor(themeModel.themes[index].terminal.text.swiftColor)
-        }
-        return NSColor(.primary)
+        guard let index = activeThemeIndex else { return NSColor(.primary) }
+        return NSColor(themeModel.themes[index].terminal.text.swiftColor)
     }
 
-    /// Returns the `background` color of the selected theme
+    /// Returns the `background` color of the selected theme (solid, so the shell detects the
+    /// light/dark background and renders to match).
     private var backgroundColor: NSColor {
-        return .clear
+        guard let index = activeThemeIndex else { return isDarkAppearance ? .black : .white }
+        return NSColor(themeModel.themes[index].terminal.background.swiftColor)
     }
 
     /// returns a `NSAppearance` based on the user setting of the terminal appearance,

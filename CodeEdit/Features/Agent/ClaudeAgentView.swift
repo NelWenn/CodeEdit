@@ -8,12 +8,15 @@ import SwiftTerm
 
 /// Full-frame view hosting the `claude` CLI for Agent mode.
 ///
-/// Themed to match the app's integrated terminal: a transparent background (so the
-/// workspace material shows through, instead of raw black) and the selected theme's
-/// colors. Mirrors the relevant parts of `TerminalEmulatorView.configureView`.
+/// Themed to follow the app's current light/dark appearance: it uses the matching theme's
+/// terminal palette and a solid themed background, so the `claude` CLI detects the background
+/// and renders its UI to match (a dark terminal on a light theme looked wrong and gave black
+/// input highlights).
 struct ClaudeAgentView: NSViewRepresentable {
     /// Observed so the terminal re-themes live when the user changes the theme.
     @ObservedObject private var themeModel: ThemeModel = .shared
+    /// Re-configure when the system/app appearance flips between light and dark.
+    @Environment(\.colorScheme) private var colorScheme
 
     let session: ClaudeSession
     let workspaceURL: URL?
@@ -37,13 +40,19 @@ struct ClaudeAgentView: NSViewRepresentable {
             : terminal.font.current
     }
 
-    /// Index of the active theme in `themeModel.themes`, honoring the dark-appearance setting.
+    private var isDarkAppearance: Bool {
+        colorScheme == .dark
+    }
+
+    /// Index of the theme matching the app's current light/dark appearance, so the terminal is
+    /// never dark while the editor is light (the previous logic used the raw `selectedTheme`,
+    /// which could be a dark theme even in light mode).
     private var themeIndex: Int? {
-        let useDark = Settings[\.theme].matchAppearance && Settings[\.terminal].darkAppearance
-        guard let selected = useDark ? themeModel.selectedDarkTheme : themeModel.selectedTheme else {
-            return nil
-        }
-        return themeModel.themes.firstIndex(of: selected)
+        let selected = Settings[\.theme].matchAppearance
+            ? (isDarkAppearance ? themeModel.selectedDarkTheme : themeModel.selectedLightTheme)
+            : themeModel.selectedTheme
+        guard let selected, let index = themeModel.themes.firstIndex(of: selected) else { return nil }
+        return index
     }
 
     private var ansiColors: [SwiftTerm.Color] {
@@ -66,21 +75,24 @@ struct ClaudeAgentView: NSViewRepresentable {
         return NSColor(themeModel.themes[index].terminal.text.swiftColor)
     }
 
+    private var backgroundColor: NSColor {
+        guard let index = themeIndex else { return isDarkAppearance ? .black : .white }
+        return NSColor(themeModel.themes[index].terminal.background.swiftColor)
+    }
+
     private func configure(_ terminal: CELocalShellTerminalView) {
         terminal.getTerminal().silentLog = true
-        terminal.appearance = Settings.shared.preferences.terminal.darkAppearance
-            ? NSAppearance(named: .darkAqua)
-            : nil
+        terminal.appearance = NSAppearance(named: isDarkAppearance ? .darkAqua : .aqua)
         terminal.font = font
         terminal.installColors(ansiColors)
         terminal.caretColor = cursorColor.withAlphaComponent(0.5)
         terminal.caretTextColor = cursorColor.withAlphaComponent(0.5)
         terminal.selectedTextBackgroundColor = selectionColor
         terminal.nativeForegroundColor = textColor
-        // Transparent so the workspace material behind the view shows through, matching
-        // the integrated terminal rather than rendering an opaque black box.
-        terminal.nativeBackgroundColor = .clear
-        terminal.layer?.backgroundColor = .clear
+        // Solid themed background so `claude` detects the light/dark background (a transparent
+        // background made it render its TUI dark on light themes).
+        terminal.nativeBackgroundColor = backgroundColor
+        terminal.layer?.backgroundColor = backgroundColor.cgColor
         terminal.optionAsMetaKey = Settings.shared.preferences.terminal.optionAsMeta
     }
 }
