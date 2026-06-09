@@ -21,6 +21,7 @@ final class CodeEditSplitViewController: NSSplitViewController {
     private weak var navigatorViewModel: NavigatorAreaViewModel?
     private weak var windowRef: NSWindow?
     private unowned var hapticPerformer: NSHapticFeedbackPerformer
+    private var saveNavigatorWorkItem: DispatchWorkItem?
 
     // MARK: - Initialization
 
@@ -220,11 +221,14 @@ final class CodeEditSplitViewController: NSSplitViewController {
     /// Save the width of the inspector and navigator between sessions.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
-        // Persist only on an actual user divider drag: the `NSSplitViewDividerIndex` key is set
-        // for user-initiated drags and absent for window-resize / minimize transients, so a
-        // transient layout can't overwrite the user's chosen width.
-        guard (notification.userInfo?["NSSplitViewDividerIndex"] as? Int) == 0 else { return }
-        saveNavigatorWidth()
+        // Debounced save: persist 0.4s after resizing settles. Transient widths during a
+        // window-resize / minimize are superseded by the final stable value, and this does not
+        // depend on the `NSSplitViewDividerIndex` userInfo key (unreliable on macOS 26+), so the
+        // user's chosen width is actually captured.
+        saveNavigatorWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.saveNavigatorWidth() }
+        saveNavigatorWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
 
     /// Persist the navigator's current (stable) width if it's a sane value.

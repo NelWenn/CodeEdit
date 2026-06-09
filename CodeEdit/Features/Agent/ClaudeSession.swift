@@ -16,6 +16,8 @@ final class ClaudeSession: ObservableObject {
     private var hasLaunchedClaude = false
     /// After a restart, relaunch with `claude --continue` to resume the same conversation.
     private var continueConversation = false
+    /// Model to force on relaunch (`--continue` otherwise keeps the conversation's model).
+    private var relaunchModel: String?
 
     /// Returns the existing terminal view, or creates one rooted at `workspaceURL`,
     /// starts the login shell, and launches the Claude Code CLI inside it.
@@ -44,7 +46,8 @@ final class ClaudeSession: ObservableObject {
     /// Terminates the current process and recreates the terminal (the bumped `generation` makes
     /// the SwiftUI Agent view rebuild it), relaunching `claude --continue` which re-reads
     /// settings.json and resumes the conversation.
-    func restart() {
+    func restart(model: String?) {
+        relaunchModel = model
         terminalView?.process.terminate()
         terminalView = nil
         hasLaunchedClaude = false
@@ -55,7 +58,13 @@ final class ClaudeSession: ObservableObject {
     private func launchClaudeIfNeeded(in view: CELocalShellTerminalView) {
         guard !hasLaunchedClaude else { return }
         hasLaunchedClaude = true
-        let command = continueConversation ? "claude --continue\n" : "claude\n"
+        var command = "claude"
+        if continueConversation { command += " --continue" }
+        // `--continue` keeps the conversation's model, so force it explicitly. Effort is read
+        // from ~/.claude/settings.json (passing --effort would hard-fail on a value the current
+        // model doesn't support, e.g. `max` on Opus).
+        if let relaunchModel, !relaunchModel.isEmpty { command += " --model \(relaunchModel)" }
+        command += "\n"
         // Let the login shell finish initializing (PATH, rc files) before running claude.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak view] in
             guard let view, view.process.running else { return }

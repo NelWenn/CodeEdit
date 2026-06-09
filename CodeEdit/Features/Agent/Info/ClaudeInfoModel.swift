@@ -70,11 +70,12 @@ final class ClaudeInfoModel: ObservableObject {
 
     func setModel(_ model: String) {
         try? settingsStore.update(model: model, effort: nil)
-        session?.restart() // soft-restart: `claude --continue` picks up the new model, no visible command
+        session?.restart(model: model) // relaunch `claude --continue --model <model>`
     }
 
     func setEffort(_ effort: String) {
         try? settingsStore.update(model: nil, effort: effort)
-        session?.restart() // soft-restart: `claude --continue` picks up the new effort
+        // Effort is applied via settings.json on relaunch; keep the current model.
+        session?.restart(model: settingsStore.read()?.model)
     }
 }
