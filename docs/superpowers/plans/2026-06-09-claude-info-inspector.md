@@ -74,6 +74,44 @@ cd ~/Developer/CodeEdit && git add CodeEditTests/Features/Agent/Info/Fixtures &&
 
 ---
 
+## Task 1 — CAPTURED (authoritative shapes; override any guess above)
+
+Real shapes captured from the user's `claude` 2.1.169 (Max 20x). Fixtures in `CodeEditTests/Features/Agent/Info/Fixtures/`.
+
+**Endpoint** `GET https://api.anthropic.com/api/oauth/usage` — header **`Authorization: Bearer <token>` ONLY** (an `anthropic-beta` header returns 401; omit it). Token at `claudeAiOauth.accessToken` in the Keychain item `Claude Code-credentials`. Response (`usage-endpoint.json`):
+```json
+{ "five_hour":        { "utilization": 15.0, "resets_at": "2026-06-09T02:40:00.270682+00:00" },
+  "seven_day":        { "utilization": 5.0,  "resets_at": "..." },
+  "seven_day_sonnet": { "utilization": 0.0,  "resets_at": "..." },
+  "seven_day_opus": null,
+  "extra_usage": { "is_enabled": true, "monthly_limit": 1700, "used_credits": 0.0, "currency": "EUR" } }
+```
+→ `utilization` is a 0–100 Double; `resets_at` is ISO8601 with fractional seconds + offset (use `ISO8601DateFormatter` with `.withFractionalSeconds`).
+
+**Statusline stdin** (`statusline.json`) does **NOT** contain `rate_limits` on a fresh session. It DOES contain live session state:
+```json
+{ "model": { "id": "claude-opus-4-8", "display_name": "Opus 4.8" },
+  "effort": { "level": "xhigh" },
+  "thinking": { "enabled": true },
+  "context_window": { "used_percentage": null, "context_window_size": 1000000 },
+  "cost": { "total_cost_usd": 0 }, "version": "2.1.169" }
+```
+
+**Corrected data model (authoritative):**
+- **Usage windows (Session/Weekly/Weekly-Sonnet)** come from the **endpoint** (primary; poll ~60s and on manual refresh — do NOT hammer it). `rate_limits` from the statusline is a bonus only if present.
+- **Live state (model display_name, effort.level, thinking.enabled, context %)** comes from the **statusline file**, polled ~2s. This is the source for the model/effort/thinking DISPLAY.
+- **Thinking** is a real boolean (`thinking.enabled`) — display it. Its control mechanism isn't a settings.json key; for v1 display it (toggle via TUI is out of scope unless trivially confirmed).
+
+**Task corrections:**
+- **Task 4** `ClaudeUsage`: implement the **endpoint** initializer (shape above) as primary; the statusline `rate_limits` initializer is optional. Test against `usage-endpoint.json`.
+- **NEW Task 4b** `ClaudeLiveState` + parser from the statusline file (`model.display_name`, `effort.level`, `thinking.enabled`, `context_window.used_percentage`). Test against `statusline.json`.
+- **Task 5** endpoint client: send **no** `anthropic-beta` header (fixed below).
+- **Task 6** installer: the script must dump the **whole** stdin JSON to `~/.claude/codeeditai-status.json` (for live state), not just `rate_limits`.
+- **Task 8** `ClaudeInfoModel`: poll the statusline file (~2s) for live state; fetch the endpoint (~60s + on refresh) for usage windows.
+- **Task 9** UI: show model/effort/thinking from live state; usage meters from endpoint; add a context-window meter as a bonus.
+
+---
+
 ## Task 2: `ClaudeAccount` + reader + plan-tier mapping (TDD)
 
 **Files:** Create `CodeEdit/Features/Agent/Info/ClaudeAccount.swift`; Test `CodeEditTests/Features/Agent/Info/ClaudeAccountReaderTests.swift`.
@@ -421,7 +459,7 @@ enum ClaudeUsageEndpointClient {
         guard let token = accessToken() else { throw ClientError.noToken }
         var req = URLRequest(url: URL(string: "https://api.anthropic.com/api/oauth/usage")!)
         req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        req.setValue("oauth-2025-04-20", forHTTPHeaderField: "anthropic-beta")
+        // NOTE (Task 1): an anthropic-beta header returns 401; send Authorization only.
         let (data, resp) = try await URLSession.shared.data(for: req)
         guard let http = resp as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             throw ClientError.badResponse
