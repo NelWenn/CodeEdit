@@ -147,17 +147,21 @@ struct WorkspaceView: View {
                         )
                     case .agent:
                         let manager = workspace.claudeSessionManager
-                        Group {
-                            if let active = manager.activeSession {
-                                ClaudeAgentView(
-                                    session: active,
-                                    workspaceURL: workspace.workspaceFileManager?.folderUrl
-                                )
-                                .id("\(active.id.uuidString)-\(active.generation)")
+                        VStack(spacing: 0) {
+                            ClaudeTabBar(manager: manager)
+                            Group {
+                                if let active = manager.activeSession {
+                                    ClaudeAgentView(
+                                        session: active,
+                                        workspaceURL: workspace.workspaceFileManager?.folderUrl
+                                    )
+                                    .id("\(active.id.uuidString)-\(active.generation)")
+                                    .padding(.horizontal, 14)
+                                    .padding(.vertical, 8)
+                                }
                             }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
                         .background(EffectView(.contentBackground))
                         .onAppear { manager.ensureAtLeastOneTab() }
                     }
