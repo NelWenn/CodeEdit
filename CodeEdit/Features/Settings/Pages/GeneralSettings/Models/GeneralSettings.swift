@@ -96,6 +96,9 @@ extension SettingsData {
         /// Auto save behavior toggle
         var isAutoSaveOn: Bool = true
 
+        /// Whether Discord Rich Presence is shown.
+        var discordRichPresenceEnabled: Bool = true
+
         /// Default initializer
         init() {}
 
@@ -174,6 +177,9 @@ extension SettingsData {
             self.isAutoSaveOn = try container.decodeIfPresent(
                 Bool.self,
                 forKey: .isAutoSaveOn
+            ) ?? true
+            self.discordRichPresenceEnabled = try container.decodeIfPresent(
+                Bool.self, forKey: .discordRichPresenceEnabled
             ) ?? true
         }
         // swiftlint:enable function_body_length
