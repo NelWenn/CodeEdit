@@ -69,7 +69,7 @@ struct SpotifyPlayerView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
         .frame(maxWidth: 680)
-        .glassCapsule()
+        .toolbarPill()
         .help(
             model.hasActiveDevice
             ? (model.state?.title ?? "Spotify")
@@ -149,29 +149,26 @@ struct SpotifyPlayerView: View {
     }
 }
 
-// MARK: - Liquid Glass capsule
+// MARK: - Toolbar pill
 
-private struct GlassCapsule: ViewModifier {
-    var interactive: Bool
-
+/// On macOS 26 the toolbar already renders a native Liquid Glass background behind centered items,
+/// so we only clip our content to the capsule — stacking a second `glassEffect` on top produced a
+/// visible "double pill". Pre-26 gets an explicit translucent capsule.
+private struct ToolbarPill: ViewModifier {
     func body(content: Content) -> some View {
-#if compiler(>=6.2)
         if #available(macOS 26, *) {
-            content.glassEffect(interactive ? .regular.interactive() : .regular, in: Capsule())
+            content.clipShape(Capsule())
         } else {
-            content.background(Capsule().fill(.quaternary))
+            content
+                .background(Capsule().fill(.quaternary))
+                .clipShape(Capsule())
         }
-#else
-        content.background(Capsule().fill(.quaternary))
-#endif
     }
 }
 
 private extension View {
-    /// Wraps the view in the native macOS Liquid Glass material clipped to a capsule (with a
-    /// pre-26 fallback). `interactive` adds the system hover/press response.
-    func glassCapsule(interactive: Bool = false) -> some View {
-        modifier(GlassCapsule(interactive: interactive))
+    func toolbarPill() -> some View {
+        modifier(ToolbarPill())
     }
 }
 
@@ -180,6 +177,10 @@ private extension View {
 /// Signed-out call-to-action: Spotify logo + label in a native interactive Liquid Glass capsule.
 private struct SpotifyConnectButton: View {
     let action: () -> Void
+
+    @Environment(\.colorScheme)
+    private var colorScheme
+    @State private var isHovering = false
 
     var body: some View {
         Button(action: action) {
@@ -197,7 +198,14 @@ private struct SpotifyConnectButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .glassCapsule(interactive: true)
+        .background {
+            Capsule()
+                .fill(Color(nsColor: colorScheme == .dark ? .white : .black))
+                .opacity(isHovering ? 0.10 : 0)
+        }
+        .toolbarPill()
+        .onHover { isHovering = $0 }
+        .animation(.easeInOut(duration: 0.08), value: isHovering)
         .help("Connect your Spotify account")
     }
 }
