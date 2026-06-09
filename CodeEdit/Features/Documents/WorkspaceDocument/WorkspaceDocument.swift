@@ -46,7 +46,7 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
     var taskNotificationHandler: TaskNotificationHandler = TaskNotificationHandler()
 
     /// The single claude Agent session for this workspace (shared by the Agent terminal and the Inspector).
-    lazy var claudeSession = ClaudeSession()
+    let claudeSession = ClaudeSession()
 
     var undoRegistration: UndoManagerRegistration = UndoManagerRegistration()
 
@@ -59,6 +59,15 @@ final class WorkspaceDocument: NSDocument, ObservableObject, NSToolbarDelegate {
 
         // Observe changes to notification panel
         notificationPanel.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
+
+        // Re-publish claude session changes (e.g. restart generation) so views that recreate
+        // the Agent terminal by `generation` re-render.
+        claudeSession.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()

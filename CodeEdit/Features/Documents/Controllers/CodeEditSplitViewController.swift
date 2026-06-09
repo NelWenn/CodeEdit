@@ -220,15 +220,27 @@ final class CodeEditSplitViewController: NSSplitViewController {
     /// Save the width of the inspector and navigator between sessions.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
-        // Persist the navigator width on every resize. The `NSSplitViewDividerIndex` userInfo key
-        // is not reliably present (especially on macOS 26+), so gating on it meant the user's
-        // chosen width was never saved. Skip while the navigator is collapsed or mid-collapse.
+        // Persist only on an actual user divider drag: the `NSSplitViewDividerIndex` key is set
+        // for user-initiated drags and absent for window-resize / minimize transients, so a
+        // transient layout can't overwrite the user's chosen width.
+        guard (notification.userInfo?["NSSplitViewDividerIndex"] as? Int) == 0 else { return }
+        saveNavigatorWidth()
+    }
+
+    /// Persist the navigator's current (stable) width if it's a sane value.
+    private func saveNavigatorWidth() {
         guard let navigatorItem = splitViewItems.first, !navigatorItem.isCollapsed,
               let navigatorView = splitView.subviews.first else { return }
         let width = navigatorView.frame.size.width
         if width >= Self.minSidebarWidth && width <= Self.maxSidebarWidth {
             workspace?.addToWorkspaceState(key: .splitViewWidth, value: width)
         }
+    }
+
+    override func viewWillDisappear() {
+        super.viewWillDisappear()
+        // Belt-and-suspenders: capture the final width on close/minimize too.
+        saveNavigatorWidth()
     }
 
     func saveNavigatorCollapsedState(isCollapsed: Bool) {

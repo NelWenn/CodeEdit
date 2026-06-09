@@ -150,6 +150,7 @@ struct WorkspaceView: View {
                             session: workspace.claudeSession,
                             workspaceURL: workspace.workspaceFileManager?.folderUrl
                         )
+                        .id(workspace.claudeSession.generation)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 8)
                         .background(EffectView(.contentBackground))
