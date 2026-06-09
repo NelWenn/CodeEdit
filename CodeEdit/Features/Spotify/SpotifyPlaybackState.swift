@@ -7,15 +7,15 @@ import Foundation
 
 /// A snapshot of the user's current Spotify playback.
 struct SpotifyPlaybackState: Equatable {
-    var isPlaying: Bool
-    var trackID: String?
-    var title: String
-    var artist: String
-    var albumArtURL: URL?
-    var progressMs: Int
-    var durationMs: Int
-    var volumePercent: Int
-    var deviceName: String?
+    let isPlaying: Bool
+    let trackID: String?
+    let title: String
+    let artist: String
+    let albumArtURL: URL?
+    let progressMs: Int
+    let durationMs: Int
+    let volumePercent: Int
+    let deviceName: String?
 
     private struct Payload: Decodable {
         struct Device: Decodable {

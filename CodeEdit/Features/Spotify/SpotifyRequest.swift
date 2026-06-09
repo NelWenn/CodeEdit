@@ -12,8 +12,8 @@ enum SpotifyRequest {
     static func pause(token: String) -> URLRequest { make("/me/player/pause", "PUT", token) }
     static func next(token: String) -> URLRequest { make("/me/player/next", "POST", token) }
     static func previous(token: String) -> URLRequest { make("/me/player/previous", "POST", token) }
-    static func seek(toMs ms: Int, token: String) -> URLRequest {
-        make("/me/player/seek?position_ms=\(ms)", "PUT", token)
+    static func seek(toMs positionMs: Int, token: String) -> URLRequest {
+        make("/me/player/seek?position_ms=\(positionMs)", "PUT", token)
     }
     static func volume(percent: Int, token: String) -> URLRequest {
         make("/me/player/volume?volume_percent=\(percent)", "PUT", token)

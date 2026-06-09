@@ -7,14 +7,19 @@ import Foundation
 
 /// Persisted Spotify OAuth tokens.
 struct SpotifyTokens: Codable, Equatable {
-    var accessToken: String
-    var refreshToken: String
-    var expiresAt: Date
+    let accessToken: String
+    let refreshToken: String
+    let expiresAt: Date
 
     private struct Response: Decodable {
-        let access_token: String           // swiftlint:disable:this identifier_name
-        let refresh_token: String?         // swiftlint:disable:this identifier_name
-        let expires_in: Int                // swiftlint:disable:this identifier_name
+        let accessToken: String
+        let refreshToken: String?
+        let expiresIn: Int
+        enum CodingKeys: String, CodingKey {
+            case accessToken = "access_token"
+            case refreshToken = "refresh_token"
+            case expiresIn = "expires_in"
+        }
     }
 
     init(accessToken: String, refreshToken: String, expiresAt: Date) {
@@ -27,12 +32,12 @@ struct SpotifyTokens: Codable, Equatable {
     /// kept when the response omits one (Spotify does this on refresh).
     init(responseData: Data, refreshFallback: String?, now: Date = Date()) throws {
         let response = try JSONDecoder().decode(Response.self, from: responseData)
-        guard let refresh = response.refresh_token ?? refreshFallback else {
+        guard let refresh = response.refreshToken ?? refreshFallback else {
             throw SpotifyError.missingRefreshToken
         }
-        self.accessToken = response.access_token
+        self.accessToken = response.accessToken
         self.refreshToken = refresh
-        self.expiresAt = now.addingTimeInterval(TimeInterval(response.expires_in))
+        self.expiresAt = now.addingTimeInterval(TimeInterval(response.expiresIn))
     }
 
     /// True when the access token is expired or within a 60s safety skew.

@@ -59,7 +59,11 @@ final class SpotifyAuthService: NSObject {
             session.presentationContextProvider = self
             session.prefersEphemeralWebBrowserSession = false
             self.session = session
-            session.start()
+            // If the session can't present (no anchor / already presenting), the completion
+            // handler never fires — resume here so `authorize()` doesn't hang forever.
+            if !session.start() {
+                continuation.resume(throwing: SpotifyError.notAuthorized)
+            }
         }
 
         guard let code = SpotifyAuthCallback.code(from: callbackURL, expectedState: state) else {

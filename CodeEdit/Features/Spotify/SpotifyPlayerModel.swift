@@ -70,6 +70,10 @@ final class SpotifyPlayerModel: ObservableObject {
         auth.logout()
         isAuthorized = false
         state = nil
+        isLiked = false
+        hasActiveDevice = true
+        localProgressMs = 0
+        lastLikedTrackID = nil
         stop()
     }
 
