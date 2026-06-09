@@ -151,6 +151,9 @@ struct WorkspaceView: View {
                             session: claudeSession,
                             workspaceURL: workspace.workspaceFileManager?.folderUrl
                         )
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(EffectView(.contentBackground))
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
