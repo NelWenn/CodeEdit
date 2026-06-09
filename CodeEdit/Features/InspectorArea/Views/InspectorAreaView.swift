@@ -49,12 +49,19 @@ struct InspectorAreaView: View {
     var body: some View {
         Group {
             if workspace.workspaceMode == .agent {
-                ClaudeInfoInspectorView(model: claudeInfoModel)
-                    .onAppear {
-                        workspace.claudeSessionManager.ensureAtLeastOneTab()
-                        claudeInfoModel.start(session: workspace.claudeSessionManager.activeSession)
-                    }
-                    .onDisappear { claudeInfoModel.stop() }
+                ClaudeAgentInspectorView(
+                    infoModel: claudeInfoModel,
+                    manager: workspace.claudeSessionManager,
+                    workspaceURL: workspace.workspaceFileManager?.folderUrl
+                )
+                .onAppear {
+                    workspace.claudeSessionManager.ensureAtLeastOneTab()
+                    claudeInfoModel.start(session: workspace.claudeSessionManager.activeSession)
+                }
+                .onChange(of: workspace.claudeSessionManager.activeTabID) { _, _ in
+                    claudeInfoModel.start(session: workspace.claudeSessionManager.activeSession)
+                }
+                .onDisappear { claudeInfoModel.stop() }
             } else {
                 WorkspacePanelView(
                     viewModel: viewModel,
