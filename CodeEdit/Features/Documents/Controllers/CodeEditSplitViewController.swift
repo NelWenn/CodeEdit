@@ -10,6 +10,9 @@ import SwiftUI
 
 final class CodeEditSplitViewController: NSSplitViewController {
     static let minSidebarWidth: CGFloat = 200
+    /// Hard cap (native maximumThickness) so the navigator can never grow into a huge panel,
+    /// regardless of window resize/minimize.
+    static let maxSidebarWidth: CGFloat = 400
     static let maxSnapWidth: CGFloat = snapWidth + 10
     static let snapWidth: CGFloat = 272
     static let minSnapWidth: CGFloat = snapWidth - 10
@@ -108,6 +111,8 @@ final class CodeEditSplitViewController: NSSplitViewController {
         // Just above the editor's default (250) — enough to hold, low enough to stay draggable
         // (a very high value like .defaultHigh blocks the divider drag entirely).
         navigator.holdingPriority = NSLayoutConstraint.Priority(260)
+        // Hard cap: it can never become a huge panel, no matter the window resize/minimize.
+        navigator.maximumThickness = Self.maxSidebarWidth
         navigator.collapseBehavior = .useConstraints
         return navigator
     }
@@ -164,15 +169,18 @@ final class CodeEditSplitViewController: NSSplitViewController {
         switch dividerIndex {
         case 0:
             // Navigator
-            if (Self.minSnapWidth...Self.maxSnapWidth).contains(proposedPosition) {
-                return Self.snapWidth
-            } else if proposedPosition <= Self.minSidebarWidth / 2 {
+            if proposedPosition <= Self.minSidebarWidth / 2 {
                 hapticCollapse(splitViewItems.first, collapseAction: true)
                 return 0
-            } else {
-                hapticCollapse(splitViewItems.first, collapseAction: false)
-                return max(Self.minSidebarWidth, proposedPosition)
             }
+            hapticCollapse(splitViewItems.first, collapseAction: false)
+            let constrained = (Self.minSnapWidth...Self.maxSnapWidth).contains(proposedPosition)
+                ? Self.snapWidth
+                : min(max(Self.minSidebarWidth, proposedPosition), Self.maxSidebarWidth)
+            // constrainSplitPosition fires only during a user divider drag (never on window
+            // resize), so this is the right place to persist the user's chosen width.
+            scheduleSaveNavigatorWidth(constrained)
+            return constrained
         case 1:
             let proposedWidth = view.frame.width - proposedPosition
             if proposedWidth <= Self.minSidebarWidth / 2 {
@@ -199,32 +207,16 @@ final class CodeEditSplitViewController: NSSplitViewController {
         item?.isCollapsed = collapseAction
     }
 
-    /// Save the width of the inspector and navigator between sessions.
-    override func splitViewDidResizeSubviews(_ notification: Notification) {
-        super.splitViewDidResizeSubviews(notification)
-        // Debounced save: persist the navigator width 0.4s after resizing settles, so transient
-        // widths during a window-resize/minimize are superseded by the final stable value.
+    /// Persists the user's chosen navigator width (debounced). Called only from a real divider
+    /// drag (`constrainSplitPosition`), so window-resize/minimize transients are never saved.
+    private func scheduleSaveNavigatorWidth(_ width: CGFloat) {
+        guard width >= Self.minSidebarWidth && width <= Self.maxSidebarWidth else { return }
         saveNavigatorWorkItem?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.saveNavigatorWidth() }
-        saveNavigatorWorkItem = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
-    }
-
-    /// Persist the navigator's current width — whatever width the user chose, up to the window
-    /// width (no compact cap: the sidebar can be made as wide as the user wants).
-    private func saveNavigatorWidth() {
-        guard let navigatorItem = splitViewItems.first, !navigatorItem.isCollapsed,
-              let navigatorView = splitView.subviews.first else { return }
-        let width = navigatorView.frame.size.width
-        if width >= Self.minSidebarWidth && width <= view.bounds.width {
-            workspace?.addToWorkspaceState(key: .splitViewWidth, value: width)
+        let work = DispatchWorkItem { [weak self] in
+            self?.workspace?.addToWorkspaceState(key: .splitViewWidth, value: width)
         }
-    }
-
-    override func viewWillDisappear() {
-        super.viewWillDisappear()
-        // Belt-and-suspenders: capture the final width on close/minimize too.
-        saveNavigatorWidth()
+        saveNavigatorWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
     }
 
     func saveNavigatorCollapsedState(isCollapsed: Bool) {
