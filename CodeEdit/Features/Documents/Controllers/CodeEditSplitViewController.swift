@@ -10,6 +10,9 @@ import SwiftUI
 
 final class CodeEditSplitViewController: NSSplitViewController {
     static let minSidebarWidth: CGFloat = 242
+    /// Compact upper bound for the navigator so it reads like a normal IDE sidebar
+    /// rather than taking over the window.
+    static let maxSidebarWidth: CGFloat = 400
     static let maxSnapWidth: CGFloat = snapWidth + 10
     static let snapWidth: CGFloat = 272
     static let minSnapWidth: CGFloat = snapWidth - 10
@@ -145,8 +148,11 @@ final class CodeEditSplitViewController: NSSplitViewController {
     /// for when the view has not been laid out yet.
     private func clampedNavigatorWidth(_ width: CGFloat) -> CGFloat {
         let available = view.bounds.width
-        let upperBound = available > 0 ? available / 2 : 500
-        return min(max(width, Self.minSidebarWidth), max(Self.minSidebarWidth, upperBound))
+        // Cap at a compact absolute width on normal/large windows; fall back to half the
+        // window on very narrow ones so the navigator can never dominate the layout.
+        let fractionCap = available > 0 ? available / 2 : Self.maxSidebarWidth
+        let upperBound = max(Self.minSidebarWidth, min(Self.maxSidebarWidth, fractionCap))
+        return min(max(width, Self.minSidebarWidth), upperBound)
     }
 
     // MARK: - NSSplitViewDelegate
