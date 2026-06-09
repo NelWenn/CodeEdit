@@ -68,6 +68,7 @@ struct SpotifyPlayerView: View {
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
+        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: 680)
         .toolbarPill()
         .help(
@@ -203,6 +204,7 @@ private struct SpotifyConnectButton: View {
                 .fill(Color(nsColor: colorScheme == .dark ? .white : .black))
                 .opacity(isHovering ? 0.10 : 0)
         }
+        .fixedSize(horizontal: false, vertical: true)
         .toolbarPill()
         .onHover { isHovering = $0 }
         .animation(.easeInOut(duration: 0.08), value: isHovering)
