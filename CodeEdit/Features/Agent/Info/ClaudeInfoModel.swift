@@ -74,8 +74,10 @@ final class ClaudeInfoModel: ObservableObject {
     }
 
     func setEffort(_ effort: String) {
-        // `ultracode` is a session-only effort and must not be persisted; the others persist.
-        if effort != "ultracode" {
+        if effort == "ultracode" {
+            // ultracode is session-only (not persisted) and needs the Workflows feature enabled.
+            settingsStore.setEnableWorkflows(true)
+        } else {
             try? settingsStore.update(model: nil, effort: effort)
         }
         session?.restart(model: settingsStore.read()?.model, effort: effort)

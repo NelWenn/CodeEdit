@@ -37,4 +37,15 @@ struct ClaudeSettingsStore {
         let out = try JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys])
         try out.write(to: url, options: .atomic)
     }
+
+    /// Enables the Workflows feature in settings.json (required for the `ultracode` effort, which
+    /// is xhigh + dynamic-workflow orchestration). Preserves every other key.
+    func setEnableWorkflows(_ enabled: Bool) {
+        let data = (try? Data(contentsOf: url)) ?? Data("{}".utf8)
+        guard var obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return }
+        obj["enableWorkflows"] = enabled
+        if let out = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]) {
+            try? out.write(to: url, options: .atomic)
+        }
+    }
 }
