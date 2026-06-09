@@ -66,9 +66,9 @@ struct SpotifyPlayerView: View {
 
             volume
         }
+        .frame(height: 30)
         .padding(.horizontal, 12)
         .padding(.vertical, 5)
-        .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: 680)
         .toolbarPill()
         .help(
@@ -228,7 +228,7 @@ private struct SpotifyIconButton: View {
             Image(systemName: systemName)
                 .font(.system(size: iconSize, weight: .medium))
                 .foregroundStyle(tint ?? .primary)
-                .frame(width: iconSize + 15, height: iconSize + 15)
+                .frame(width: iconSize + 10, height: iconSize + 10)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
