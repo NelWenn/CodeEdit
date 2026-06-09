@@ -121,8 +121,8 @@ final class CodeEditSplitViewController: NSSplitViewController {
 
         guard let workspace else { return }
 
-        let navigatorWidth = workspace.getFromWorkspaceState(.splitViewWidth) as? CGFloat
-        splitView.setPosition(navigatorWidth ?? Self.minSidebarWidth, ofDividerAt: 0)
+        let savedWidth = workspace.getFromWorkspaceState(.splitViewWidth) as? CGFloat ?? Self.minSidebarWidth
+        splitView.setPosition(clampedNavigatorWidth(savedWidth), ofDividerAt: 0)
 
         if let firstSplitView = splitViewItems.first {
             firstSplitView.isCollapsed = workspace.getFromWorkspaceState(
@@ -137,6 +137,16 @@ final class CodeEditSplitViewController: NSSplitViewController {
         }
 
         workspace.notificationPanel.updateToolbarItem()
+    }
+
+    /// Clamp a navigator width to a sane range so a stale/oversized persisted value (e.g. a
+    /// width saved during a transient layout) or an over-eager drag can't let the sidebar take
+    /// over the window. The upper bound is half the split view's width, with a fixed fallback
+    /// for when the view has not been laid out yet.
+    private func clampedNavigatorWidth(_ width: CGFloat) -> CGFloat {
+        let available = view.bounds.width
+        let upperBound = available > 0 ? available / 2 : 500
+        return min(max(width, Self.minSidebarWidth), max(Self.minSidebarWidth, upperBound))
     }
 
     // MARK: - NSSplitViewDelegate
@@ -164,7 +174,7 @@ final class CodeEditSplitViewController: NSSplitViewController {
                 return 0
             } else {
                 hapticCollapse(splitViewItems.first, collapseAction: false)
-                return max(Self.minSidebarWidth, proposedPosition)
+                return clampedNavigatorWidth(proposedPosition)
             }
         case 1:
             let proposedWidth = view.frame.width - proposedPosition
