@@ -84,10 +84,6 @@ final class CodeEditSplitViewController: NSSplitViewController {
         let mainContent = NSSplitViewItem(viewController: NSHostingController(rootView: workspaceView))
         mainContent.titlebarSeparatorStyle = .line
         mainContent.minimumThickness = 200
-        // Give the editor a lower holding priority than the sidebars so it (not the navigator)
-        // absorbs window resizing — the navigator keeps the width you set, while staying freely
-        // draggable (we don't raise the navigator's priority, which would block dragging).
-        mainContent.holdingPriority = NSLayoutConstraint.Priority(200)
 
         addSplitViewItem(mainContent)
 
@@ -107,6 +103,11 @@ final class CodeEditSplitViewController: NSSplitViewController {
         }
         navigator.isSpringLoaded = true
         navigator.minimumThickness = Self.minSidebarWidth
+        // Hold the navigator's width when the window resizes, in BOTH directions (grow and
+        // shrink), so it stays a fixed-width sidebar and the editor pane absorbs the change.
+        // Just above the editor's default (250) — enough to hold, low enough to stay draggable
+        // (a very high value like .defaultHigh blocks the divider drag entirely).
+        navigator.holdingPriority = NSLayoutConstraint.Priority(260)
         navigator.collapseBehavior = .useConstraints
         return navigator
     }
