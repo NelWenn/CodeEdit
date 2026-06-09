@@ -70,12 +70,14 @@ final class ClaudeInfoModel: ObservableObject {
 
     func setModel(_ model: String) {
         try? settingsStore.update(model: model, effort: nil)
-        session?.restart(model: model) // relaunch `claude --continue --model <model>`
+        session?.restart(model: model, effort: settingsStore.read()?.effort)
     }
 
     func setEffort(_ effort: String) {
-        try? settingsStore.update(model: nil, effort: effort)
-        // Effort is applied via settings.json on relaunch; keep the current model.
-        session?.restart(model: settingsStore.read()?.model)
+        // `ultracode` is a session-only effort and must not be persisted; the others persist.
+        if effort != "ultracode" {
+            try? settingsStore.update(model: nil, effort: effort)
+        }
+        session?.restart(model: settingsStore.read()?.model, effort: effort)
     }
 }

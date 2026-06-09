@@ -9,13 +9,14 @@ struct ModelEffortPicker: View {
         ("sonnet", "Sonnet"),
         ("haiku", "Haiku")
     ]
-    /// Effort levels in increasing order, exactly as accepted by `claude --effort`.
+    /// Effort levels in increasing order (`max` is omitted — unsupported on Opus; `ultracode`
+    /// is xhigh + dynamic-workflow orchestration, a session-only mode that requires workflows).
     private let effortOptions: [(value: String, label: String)] = [
         ("low", "Low"),
         ("medium", "Medium"),
         ("high", "High"),
         ("xhigh", "Extra High"),
-        ("max", "Max")
+        ("ultracode", "Ultracode")
     ]
 
     var body: some View {

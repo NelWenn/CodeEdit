@@ -136,6 +136,8 @@ final class CodeEditSplitViewController: NSSplitViewController {
             navigatorWidth = Self.minSidebarWidth
         }
         splitView.setPosition(navigatorWidth, ofDividerAt: 0)
+        NSLog("CEAI-NAV viewWillAppear restore: saved=%@ applied=%.0f actual=%.0f",
+              String(describing: savedWidth), navigatorWidth, splitView.subviews.first?.frame.width ?? -1)
 
         if let firstSplitView = splitViewItems.first {
             firstSplitView.isCollapsed = workspace.getFromWorkspaceState(
@@ -234,10 +236,17 @@ final class CodeEditSplitViewController: NSSplitViewController {
     /// Persist the navigator's current (stable) width if it's a sane value.
     private func saveNavigatorWidth() {
         guard let navigatorItem = splitViewItems.first, !navigatorItem.isCollapsed,
-              let navigatorView = splitView.subviews.first else { return }
+              let navigatorView = splitView.subviews.first else {
+            NSLog("CEAI-NAV save SKIP (collapsed / no view)")
+            return
+        }
         let width = navigatorView.frame.size.width
         if width >= Self.minSidebarWidth && width <= Self.maxSidebarWidth {
             workspace?.addToWorkspaceState(key: .splitViewWidth, value: width)
+            NSLog("CEAI-NAV save width=%.0f -> SAVED", width)
+        } else {
+            NSLog("CEAI-NAV save width=%.0f -> SKIPPED (out of [%.0f, %.0f])",
+                  width, Self.minSidebarWidth, Self.maxSidebarWidth)
         }
     }
 
