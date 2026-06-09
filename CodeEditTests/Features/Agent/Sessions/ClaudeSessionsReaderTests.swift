@@ -33,18 +33,15 @@ final class ClaudeSessionsReaderTests: XCTestCase {
         try ("{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":\"Fix the navbar spacing please\"}}\n")
             .write(to: dir.appendingPathComponent("\(idB).jsonl"), atomically: true, encoding: .utf8)
         // Malformed file: must be skipped (its content), not crash.
+        let idC = "cccccccc-0000-0000-0000-000000000003"
         try ("not json at all\n")
-            .write(to: dir.appendingPathComponent("cccccccc-0000-0000-0000-000000000003.jsonl"),
-                   atomically: true, encoding: .utf8)
+            .write(to: dir.appendingPathComponent("\(idC).jsonl"), atomically: true, encoding: .utf8)
 
         // Make A newest, B middle, C oldest.
         let now = Date()
-        try FileManager.default.setAttributes([.modificationDate: now],
-            ofItemAtPath: dir.appendingPathComponent("\(idA).jsonl").path)
-        try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-60)],
-            ofItemAtPath: dir.appendingPathComponent("\(idB).jsonl").path)
-        try FileManager.default.setAttributes([.modificationDate: now.addingTimeInterval(-120)],
-            ofItemAtPath: dir.appendingPathComponent("cccccccc-0000-0000-0000-000000000003.jsonl").path)
+        try setModificationDate(now, at: dir.appendingPathComponent("\(idA).jsonl"))
+        try setModificationDate(now.addingTimeInterval(-60), at: dir.appendingPathComponent("\(idB).jsonl"))
+        try setModificationDate(now.addingTimeInterval(-120), at: dir.appendingPathComponent("\(idC).jsonl"))
 
         let reader = ClaudeSessionsReader(projectsBaseURL: base)
         let sessions = reader.readSessions(for: cwd)
@@ -69,8 +66,7 @@ final class ClaudeSessionsReaderTests: XCTestCase {
         let base = try makeTempProjectsDir()
         defer { try? FileManager.default.removeItem(at: base) }
         let cwd = URL(fileURLWithPath: "/tmp/proj-blocks")
-        let dir = base.appendingPathComponent(
-            ClaudeSessionsReader.encodedProjectDir(for: cwd), isDirectory: true)
+        let dir = base.appendingPathComponent(ClaudeSessionsReader.encodedProjectDir(for: cwd), isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let id = "dddddddd-0000-0000-0000-000000000004"
         try ("{\"type\":\"user\",\"message\":{\"role\":\"user\",\"content\":" +
@@ -99,8 +95,7 @@ final class ClaudeSessionsReaderTests: XCTestCase {
         let base = try makeTempProjectsDir()
         defer { try? FileManager.default.removeItem(at: base) }
         let cwd = URL(fileURLWithPath: "/tmp/proj-trunc")
-        let dir = base.appendingPathComponent(
-            ClaudeSessionsReader.encodedProjectDir(for: cwd), isDirectory: true)
+        let dir = base.appendingPathComponent(ClaudeSessionsReader.encodedProjectDir(for: cwd), isDirectory: true)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let id = "eeeeeeee-0000-0000-0000-000000000005"
         let longText = String(repeating: "a", count: 100)
@@ -110,5 +105,10 @@ final class ClaudeSessionsReaderTests: XCTestCase {
         XCTAssertNotNil(title)
         XCTAssertTrue(title?.hasSuffix("…") ?? false)
         XCTAssertEqual(title?.count, 61) // 60 chars + ellipsis
+    }
+
+    /// Sets a file's modification date (helper keeps call sites within line/bracket lint limits).
+    private func setModificationDate(_ date: Date, at url: URL) throws {
+        try FileManager.default.setAttributes([.modificationDate: date], ofItemAtPath: url.path)
     }
 }

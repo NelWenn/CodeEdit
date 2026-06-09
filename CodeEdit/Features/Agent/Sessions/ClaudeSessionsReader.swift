@@ -76,6 +76,7 @@ struct ClaudeSessionsReader {
         let data = (try? handle.read(upToCount: 256 * 1024)) ?? Data()
         // `String(decoding:as:)` substitutes U+FFFD for an invalid/truncated multi-byte
         // sequence at the 256 KB cut instead of returning nil (which would drop a valid title).
+        // swiftlint:disable:next optional_data_string_conversion
         let text = String(decoding: data, as: UTF8.self)
 
         var firstUserText: String?
