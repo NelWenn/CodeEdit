@@ -21,6 +21,10 @@ final class ClaudeSession: ObservableObject, Identifiable {
 
     private var terminalView: CELocalShellTerminalView?
     private var hasLaunchedClaude = false
+    /// True once `claude` has been launched at least once for this session id. Subsequent
+    /// relaunches (e.g. a model/effort change) then `--resume` it even if its `.jsonl` hasn't
+    /// flushed to disk yet, avoiding a `--session-id` collision on the already-registered id.
+    private var hasEverLaunched = false
     /// Model/effort to force on the next launch (e.g. resuming with the current settings).
     private var relaunchModel: String?
     private var relaunchEffort: String?
@@ -36,11 +40,6 @@ final class ClaudeSession: ObservableObject, Identifiable {
     init(resuming claudeSessionId: String, title: String) {
         self.claudeSessionId = claudeSessionId
         self.title = title
-    }
-
-    func setTitle(_ newTitle: String) {
-        guard newTitle != title else { return }
-        title = newTitle
     }
 
     /// Set the model/effort to apply on the next (first) launch, without relaunching now.
@@ -88,7 +87,10 @@ final class ClaudeSession: ObservableObject, Identifiable {
     private func launchClaudeIfNeeded(in view: CELocalShellTerminalView, workspaceURL: URL?) {
         guard !hasLaunchedClaude else { return }
         hasLaunchedClaude = true
-        let resume = sessionFileExists(workspaceURL: workspaceURL)
+        // Resume if the session was launched before (this tab restarting) or already has a
+        // `.jsonl` (opened from the list / restored); otherwise start it fresh with `--session-id`.
+        let resume = hasEverLaunched || sessionFileExists(workspaceURL: workspaceURL)
+        hasEverLaunched = true
         let command = Self.launchCommand(
             sessionId: claudeSessionId,
             resume: resume,
