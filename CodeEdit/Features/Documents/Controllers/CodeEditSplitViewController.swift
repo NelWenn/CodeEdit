@@ -10,9 +10,6 @@ import SwiftUI
 
 final class CodeEditSplitViewController: NSSplitViewController {
     static let minSidebarWidth: CGFloat = 200
-    /// Compact upper bound for the navigator so it reads like a normal IDE sidebar
-    /// rather than taking over the window.
-    static let maxSidebarWidth: CGFloat = 400
     static let maxSnapWidth: CGFloat = snapWidth + 10
     static let snapWidth: CGFloat = 272
     static let minSnapWidth: CGFloat = snapWidth - 10
@@ -125,19 +122,9 @@ final class CodeEditSplitViewController: NSSplitViewController {
 
         guard let workspace else { return }
 
-        // Restore the saved navigator width only if it's within sane bounds; ignore stale
-        // oversized values (older builds could persist a runaway width) and fall back to the
-        // compact default so the sidebar never reopens dominating the window.
+        // Restore the saved navigator width (whatever width the user chose), floored at the min.
         let savedWidth = workspace.getFromWorkspaceState(.splitViewWidth) as? CGFloat
-        let navigatorWidth: CGFloat
-        if let savedWidth, savedWidth <= Self.maxSidebarWidth {
-            navigatorWidth = max(savedWidth, Self.minSidebarWidth)
-        } else {
-            navigatorWidth = Self.minSidebarWidth
-        }
-        splitView.setPosition(navigatorWidth, ofDividerAt: 0)
-        Self.ceaiLog("viewWillAppear restore: saved=\(String(describing: savedWidth)) "
-            + "applied=\(navigatorWidth) actualAfter=\(splitView.subviews.first?.frame.width ?? -1)")
+        splitView.setPosition(max(savedWidth ?? Self.minSidebarWidth, Self.minSidebarWidth), ofDividerAt: 0)
 
         if let firstSplitView = splitViewItems.first {
             firstSplitView.isCollapsed = workspace.getFromWorkspaceState(
@@ -152,19 +139,6 @@ final class CodeEditSplitViewController: NSSplitViewController {
         }
 
         workspace.notificationPanel.updateToolbarItem()
-    }
-
-    /// Clamp a navigator width to a sane range so a stale/oversized persisted value (e.g. a
-    /// width saved during a transient layout) or an over-eager drag can't let the sidebar take
-    /// over the window. The upper bound is half the split view's width, with a fixed fallback
-    /// for when the view has not been laid out yet.
-    private func clampedNavigatorWidth(_ width: CGFloat) -> CGFloat {
-        let available = view.bounds.width
-        // Cap at a compact absolute width on normal/large windows; fall back to half the
-        // window on very narrow ones so the navigator can never dominate the layout.
-        let fractionCap = available > 0 ? available / 2 : Self.maxSidebarWidth
-        let upperBound = max(Self.minSidebarWidth, min(Self.maxSidebarWidth, fractionCap))
-        return min(max(width, Self.minSidebarWidth), upperBound)
     }
 
     // MARK: - NSSplitViewDelegate
@@ -192,7 +166,7 @@ final class CodeEditSplitViewController: NSSplitViewController {
                 return 0
             } else {
                 hapticCollapse(splitViewItems.first, collapseAction: false)
-                return clampedNavigatorWidth(proposedPosition)
+                return max(Self.minSidebarWidth, proposedPosition)
             }
         case 1:
             let proposedWidth = view.frame.width - proposedPosition
@@ -223,45 +197,22 @@ final class CodeEditSplitViewController: NSSplitViewController {
     /// Save the width of the inspector and navigator between sessions.
     override func splitViewDidResizeSubviews(_ notification: Notification) {
         super.splitViewDidResizeSubviews(notification)
-        // Debounced save: persist 0.4s after resizing settles. Transient widths during a
-        // window-resize / minimize are superseded by the final stable value, and this does not
-        // depend on the `NSSplitViewDividerIndex` userInfo key (unreliable on macOS 26+), so the
-        // user's chosen width is actually captured.
-        Self.ceaiLog("resize: navWidth=\(splitView.subviews.first?.frame.width ?? -1) "
-            + "dividerKey=\(String(describing: notification.userInfo?["NSSplitViewDividerIndex"]))")
+        // Debounced save: persist the navigator width 0.4s after resizing settles, so transient
+        // widths during a window-resize/minimize are superseded by the final stable value.
         saveNavigatorWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.saveNavigatorWidth() }
         saveNavigatorWorkItem = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: work)
     }
 
-    /// Persist the navigator's current (stable) width if it's a sane value.
+    /// Persist the navigator's current width — whatever width the user chose, up to the window
+    /// width (no compact cap: the sidebar can be made as wide as the user wants).
     private func saveNavigatorWidth() {
         guard let navigatorItem = splitViewItems.first, !navigatorItem.isCollapsed,
-              let navigatorView = splitView.subviews.first else {
-            Self.ceaiLog("save SKIP (collapsed / no view)")
-            return
-        }
+              let navigatorView = splitView.subviews.first else { return }
         let width = navigatorView.frame.size.width
-        if width >= Self.minSidebarWidth && width <= Self.maxSidebarWidth {
+        if width >= Self.minSidebarWidth && width <= view.bounds.width {
             workspace?.addToWorkspaceState(key: .splitViewWidth, value: width)
-            Self.ceaiLog("save width=\(width) -> SAVED")
-        } else {
-            Self.ceaiLog("save width=\(width) -> SKIPPED (out of [\(Self.minSidebarWidth), \(Self.maxSidebarWidth)])")
-        }
-    }
-
-    /// Appends a diagnostic line to /tmp/ceai-nav.log (NSLog isn't reliably captured here).
-    static func ceaiLog(_ message: String) {
-        let line = "\(Date()) CEAI-NAV \(message)\n"
-        let url = URL(fileURLWithPath: "/tmp/ceai-nav.log")
-        guard let data = line.data(using: .utf8) else { return }
-        if let handle = try? FileHandle(forWritingTo: url) {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            try? handle.close()
-        } else {
-            try? data.write(to: url)
         }
     }
 
