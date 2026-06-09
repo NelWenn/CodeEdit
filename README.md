@@ -30,10 +30,7 @@
 - [Liquid Glass redesign](#liquid-glass-redesign)
 - [Building from source](#building-from-source)
 - [Credits](#credits)
-- [Contributing](#contributing)
 - [Contributors](#contributors)
-- [Sponsors](#sponsors)
-- [Backers](#backers)
 - [License](#license)
 
 ## What's new in this fork
@@ -106,9 +103,7 @@ CodeEditAi is built on the incredible work of the **[CodeEdit](https://github.co
 - **Fork & AI integration:** [NelWenn](https://github.com/NelWenn)
 - **Original editor:** [CodeEdit](https://github.com/CodeEditApp/CodeEdit) by the CodeEdit community (MIT)
 
-## Contributing
-
-This is a personal fork. If you're interested in the core editor, please contribute upstream at [CodeEditApp/CodeEdit](https://github.com/CodeEditApp/CodeEdit) — see their [Contribution Guide](https://github.com/CodeEditApp/CodeEdit/blob/main/CONTRIBUTING.md). For issues specific to CodeEditAi's fork features, open an issue on [this repository](https://github.com/NelWenn/CodeEdit/issues).
+CodeEditAi is a personal IDE tailored to my own workflow and preferences, shared as-is. It's a separate project from CodeEdit and isn't seeking contributions — if you're after the community editor itself, head to [CodeEditApp/CodeEdit](https://github.com/CodeEditApp/CodeEdit).
 
 ## Contributors
 
@@ -240,43 +235,6 @@ This is a personal fork. If you're interested in the core editor, please contrib
 <!-- prettier-ignore-end -->
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
-
-## Sponsors
-
-Support CodeEdit's development by [becoming a sponsor](https://github.com/sponsors/CodeEditApp).
-
-<a title="Vercel" href="https://vercel.com/?utm_source=codeedit&utm_campaign=oss" target="_blank"><img src="https://user-images.githubusercontent.com/806104/162766170-60f3b95a-ca30-4015-a3e3-a605df78b98a.png" width="128"></a>
-<a title="MacStadium" href="https://macstadium.com" target="_blank"><img src="https://user-images.githubusercontent.com/806104/162766594-eff7f985-31a9-48c5-9e58-139794fefa10.png" width="128"></a>
-<a title="GitBook" href="https://www.gitbook.com/" target="_blank"><img src="https://user-images.githubusercontent.com/806104/162766464-c10dc9fc-088a-4945-a0e1-17bd42705b70.png" width="128"></a>
-<a title="panascais" href="https://github.com/panascais" target="_blank"><img src="https://avatars.githubusercontent.com/u/19628635?s=200&v=4" width="128"></a>
-<a title="DevUtilsApp" href="https://devutils.app/?utm_source=codeedit&utm_campaign=oss" target="_blank"><img src="https://devutils.app/512.png" width="128"></a>
-<a title="Proxyman" href="https://proxyman.io/" target="_blank"><img src="https://user-images.githubusercontent.com/35942988/215859653-0d3622e4-a214-4691-acbe-cd96ca833193.png" width="128"></a>
-<a title="TablePlus" href="https://tableplus.com/" target="_blank"><img src="https://avatars.githubusercontent.com/u/29408238?s=200&v=4" width="128"></a>
-
-## Backers
-
-Support CodeEdit's development by [becoming a backer](https://github.com/sponsors/CodeEditApp).
-
-<a title="dannydorazio" href="https://github.com/dannydorazio" target="_blank"><img src="https://avatars.githubusercontent.com/u/21158275?v=4" width="64"></a>
-<a title="omrd" href="https://github.com/omrd" target="_blank"><img src="https://avatars.githubusercontent.com/u/34616424?v=4" width="64"></a>
-<a title="sparrowcode" href="https://github.com/sparrowcode" target="_blank"><img src="https://avatars.githubusercontent.com/u/98487302?s=200&v=4" width="64"></a>
-<a title="Gebes" href="https://github.com/Gebes" target="_blank"><img src="https://avatars.githubusercontent.com/u/35232234?v=4" width="64"></a>
-<a title="lovetodream" href="https://github.com/lovetodream" target="_blank"><img src="https://avatars.githubusercontent.com/u/38291523?v=4" width="64"></a>
-<a title="ridafkih" href="https://github.com/ridafkih" target="_blank"><img src="https://avatars.githubusercontent.com/u/9158485?v=4" width="64"></a>
-<a title="tjkohi" href="https://github.com/tjkohli" target="_blank"><img src="https://avatars.githubusercontent.com/u/7361247?v=4" width="64"></a>
-<a title="mattpilott" href="https://github.com/mattpilott" target="_blank"><img src="https://avatars.githubusercontent.com/u/2401925?v=4" width="64"></a>
-
-
-### Thanks to all of our other backers
-
-[@ivanvorobei](https://github.com/ivanvorobei)
-[@albertorestifo](https://github.com/albertorestifo)
-[@rkusa](https://github.com/rkusa)
-[@cadenkriese](https://github.com/cadenkriese)
-[@petrjahoda](https://github.com/petrjahoda)
-[@allejo](https://github.com/allejo)
-[@frousselet](frousselet)
-[@wkillerud](wkillerud)
 
 ## License
 
