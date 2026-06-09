@@ -13,6 +13,9 @@ final class ClaudeInfoModel: ObservableObject {
     @Published private(set) var liveState = ClaudeLiveState()
     @Published private(set) var usage = ClaudeUsage()
     @Published private(set) var usageIsStale = false
+    /// The effort the user last picked in the panel. Takes display precedence over the statusline
+    /// because `ultracode` reports as `xhigh` there (it IS xhigh + workflows) and can't be told apart.
+    @Published private(set) var selectedEffort: String?
 
     private let settingsStore = ClaudeSettingsStore()
     private let installer = ClaudeUsageStatuslineInstaller()
@@ -65,8 +68,9 @@ final class ClaudeInfoModel: ObservableObject {
 
     /// The model to show as selected (live session value, else the configured setting).
     var currentModel: String? { liveState.modelDisplayName ?? settingsStore.read()?.model }
-    /// The effort to show as selected (live session value, else the configured setting).
-    var currentEffort: String? { liveState.effortLevel ?? settingsStore.read()?.effort }
+    /// The effort to show as selected: the user's panel pick first (so `ultracode` shows as
+    /// such), else the live statusline value, else the configured setting.
+    var currentEffort: String? { selectedEffort ?? liveState.effortLevel ?? settingsStore.read()?.effort }
 
     func setModel(_ model: String) {
         try? settingsStore.update(model: model, effort: nil)
@@ -74,6 +78,7 @@ final class ClaudeInfoModel: ObservableObject {
     }
 
     func setEffort(_ effort: String) {
+        selectedEffort = effort
         if effort == "ultracode" {
             // ultracode is session-only (not persisted) and needs the Workflows feature enabled.
             settingsStore.setEnableWorkflows(true)

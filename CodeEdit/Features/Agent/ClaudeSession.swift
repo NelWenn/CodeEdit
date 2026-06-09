@@ -65,7 +65,15 @@ final class ClaudeSession: ObservableObject {
         if continueConversation { command += " --continue" }
         // `--continue` keeps the conversation's model/effort, so force them explicitly.
         if let relaunchModel, !relaunchModel.isEmpty { command += " --model \(relaunchModel)" }
-        if let relaunchEffort, !relaunchEffort.isEmpty { command += " --effort \(relaunchEffort)" }
+        if let relaunchEffort, !relaunchEffort.isEmpty {
+            if relaunchEffort == "ultracode" {
+                // `ultracode` is not a --effort value (claude rejects it); it's a session setting
+                // (xhigh effort + dynamic-workflow orchestration) set via --settings.
+                command += " --settings '{\"ultracode\": true}'"
+            } else {
+                command += " --effort \(relaunchEffort)"
+            }
+        }
         command += "\n"
         // Let the login shell finish initializing (PATH, rc files) before running claude.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak view] in
