@@ -1,0 +1,11 @@
+{
+  "oauthAccount": {
+    "emailAddress": "contact@bryanmourier.com",
+    "displayName": "Bryan",
+    "organizationRateLimitTier": "default_claude_max_20x",
+    "userRateLimitTier": null,
+    "hasExtraUsageEnabled": true,
+    "accountUuid": "SCRUBBED",
+    "organizationUuid": "SCRUBBED"
+  }
+}

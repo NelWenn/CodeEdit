@@ -1,0 +1,43 @@
+{
+  "effort": {
+    "level": "xhigh"
+  },
+  "model": {
+    "id": "claude-opus-4-8",
+    "display_name": "Opus 4.8"
+  },
+  "workspace": {
+    "current_dir": "/path/to/project",
+    "project_dir": "/path/to/project",
+    "added_dirs": [],
+    "repo": {
+      "host": "github.com",
+      "owner": "owner",
+      "name": "project"
+    }
+  },
+  "version": "2.1.169",
+  "output_style": {
+    "name": "default"
+  },
+  "cost": {
+    "total_cost_usd": 0,
+    "total_duration_ms": 795,
+    "total_api_duration_ms": 0,
+    "total_lines_added": 0,
+    "total_lines_removed": 0
+  },
+  "context_window": {
+    "total_input_tokens": 0,
+    "total_output_tokens": 0,
+    "context_window_size": 1000000,
+    "current_usage": null,
+    "used_percentage": null,
+    "remaining_percentage": null
+  },
+  "exceeds_200k_tokens": false,
+  "fast_mode": false,
+  "thinking": {
+    "enabled": true
+  }
+}
