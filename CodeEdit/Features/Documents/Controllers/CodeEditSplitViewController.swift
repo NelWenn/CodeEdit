@@ -10,8 +10,6 @@ import SwiftUI
 
 final class CodeEditSplitViewController: NSSplitViewController {
     static let minSidebarWidth: CGFloat = 200
-    /// Hard cap so the navigator stays a sidebar and can never grow into the window.
-    static let maxSidebarWidth: CGFloat = 500
     static let maxSnapWidth: CGFloat = snapWidth + 10
     static let snapWidth: CGFloat = 272
     static let minSnapWidth: CGFloat = snapWidth - 10
@@ -105,10 +103,9 @@ final class CodeEditSplitViewController: NSSplitViewController {
         }
         navigator.isSpringLoaded = true
         navigator.minimumThickness = Self.minSidebarWidth
-        // Keep it a fixed-width sidebar: a hard max so it can never grow into the window, and a
-        // high holding priority so it keeps its width on window resize (the editor pane absorbs
-        // the change) rather than growing with it.
-        navigator.maximumThickness = Self.maxSidebarWidth
+        // Behave like Xcode's navigator: freely resizable by dragging the divider, and a high
+        // holding priority so it keeps the width you set when the window resizes (the editor pane
+        // absorbs the change) instead of growing with the window. No max — you choose the width.
         navigator.holdingPriority = .defaultHigh
         navigator.collapseBehavior = .useConstraints
         return navigator
