@@ -1,85 +1,114 @@
 <p align="center">
   <img src="https://github.com/CodeEditApp/CodeEdit/blob/main/.github/CodeEdit-Icon-128@2x.png?raw=true" height="128">
-  <h1 align="center">CodeEdit for macOS</h1>
+  <h1 align="center">CodeEditAi</h1>
+  <p align="center"><i>A native macOS AI-first IDE — a fork of <a href="https://github.com/CodeEditApp/CodeEdit">CodeEdit</a>.</i></p>
 </p>
-
 
 <p align="center">
-  <a aria-label="Follow CodeEdit on X" href="https://x.com/CodeEditApp" target="_blank">
-    <img alt="" src="https://img.shields.io/badge/Follow%20@CodeEditApp-black.svg?style=for-the-badge&logo=X">
-  </a>
-  <a aria-label="Follow CodeEdit on BlueSky" href="https://bsky.app/profile/codeedit.app" target="_blank">
-    <img alt="" src="https://img.shields.io/badge/Follow%20@codeedit.app-black.svg?style=for-the-badge&logo=bluesky">
-  </a>
-  <a aria-label="Join the community on Discord" href="https://discord.gg/vChUXVf9Em" target="_blank">
-    <img alt="" src="https://img.shields.io/badge/Join%20the%20community-black.svg?style=for-the-badge&logo=Discord">
+  <img alt="Platform macOS 26+" src="https://img.shields.io/badge/platform-macOS%2026%2B%20(Tahoe%20%2F%2027)-black.svg?style=for-the-badge&logo=apple">
+  <img alt="Built with Claude" src="https://img.shields.io/badge/built%20with-Claude-black.svg?style=for-the-badge">
+  <a aria-label="Based on CodeEdit" href="https://github.com/CodeEditApp/CodeEdit" target="_blank">
+    <img alt="Based on CodeEdit" src="https://img.shields.io/badge/based%20on-CodeEdit-black.svg?style=for-the-badge">
   </a>
 </p>
 
-CodeEdit is a code editor built by the community, for the community, written entirely and unapologetically for macOS. Features include syntax highlighting, code completion, project find and replace, snippets, terminal, task running, debugging, git integration, code review, extensions, and more.
+**CodeEditAi** is a personal fork of [CodeEdit](https://github.com/CodeEditApp/CodeEdit) that turns the community's native macOS code editor into an **AI-first IDE**. It keeps everything that makes CodeEdit great — a fully native, non-Electron editor with syntax highlighting, project find & replace, a terminal, and git integration — and layers on a built-in Claude coding agent, an ambient Spotify player, Discord Rich Presence, and a top-to-bottom **macOS Liquid Glass** redesign.
 
 <img width="1012" alt="github-banner" src="https://user-images.githubusercontent.com/806104/194004176-3143d19f-1ad9-449c-bd41-8c4f9998f44b.png">
 
-[![GitHub release](https://img.shields.io/github/v/release/CodeEditApp/CodeEdit?color=orange&label=latest%20release&sort=semver&style=flat-square)](https://github.com/CodeEditApp/CodeEdit/releases/latest)
-[![All Contributors](https://img.shields.io/badge/all_contributors-32-orange.svg?style=flat-square)](#contributors-)
-[![GitHub Workflow Status (with branch)](https://img.shields.io/github/actions/workflow/status/CodeEditApp/CodeEdit/CI-pre-release.yml?style=flat-square)](https://github.com/CodeEditApp/CodeEdit/actions/workflows/CI-pre-release.yml)
-[![GitHub Repo stars](https://img.shields.io/github/stars/CodeEditApp/CodeEdit?style=flat-square)](https://github.com/CodeEditApp/CodeEdit/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/CodeEditApp/CodeEdit?style=flat-square)](https://github.com/CodeEditApp/CodeEdit/forks)
-[![Discord Badge](https://img.shields.io/discord/951544472238444645?color=5865F2&label=Discord&logo=discord&logoColor=white&style=flat-square)](https://discord.gg/vChUXVf9Em)
+[![GitHub stars](https://img.shields.io/github/stars/NelWenn/CodeEdit?style=flat-square)](https://github.com/NelWenn/CodeEdit/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/NelWenn/CodeEdit?style=flat-square)](https://github.com/NelWenn/CodeEdit/network/members)
+[![Upstream](https://img.shields.io/badge/upstream-CodeEditApp%2FCodeEdit-orange?style=flat-square)](https://github.com/CodeEditApp/CodeEdit)
+[![License](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](#license)
 
 > [!IMPORTANT]
-> CodeEdit is currently in development and not yet recommended for production use, however you can take part in shaping it's future by test-driving [pre-release versions](https://github.com/CodeEditApp/CodeEdit/releases) and [submitting an issue](https://github.com/CodeEditApp/CodeEdit/issues) to let us know what you think.
+> CodeEditAi is an experimental personal fork built on top of CodeEdit's pre-release codebase. It is **not affiliated with or endorsed by the CodeEdit project**, targets the macOS 26/27 toolchain (Xcode 26/27), and is intended for personal use and experimentation. For the upstream editor, see [CodeEditApp/CodeEdit](https://github.com/CodeEditApp/CodeEdit).
 
 ## Table of Contents
 
-- [Motivation](#motivation)
-- [Mission](#mission)
-- [Community](#community)
-- [Activity](#activity)
+- [What's new in this fork](#whats-new-in-this-fork)
+- [Liquid Glass redesign](#liquid-glass-redesign)
+- [Building from source](#building-from-source)
+- [Credits](#credits)
 - [Contributing](#contributing)
 - [Contributors](#contributors)
 - [Sponsors](#sponsors)
 - [Backers](#backers)
 - [License](#license)
 
-## Motivation
+## What's new in this fork
 
-Most editors in use today rely on Electron or other cross-platform frameworks, limiting their ability to fully utilize system resources. While Xcode provides a native experience, it is specifically designed for projects targeting Apple platforms. 
+CodeEditAi adds four headline features on top of CodeEdit:
 
-We think developers working on projects not written for Apple platforms deserve that same macOS-native experience we get with Xcode while unlocking the full potential of the Mac. 
+### 🤖 Claude coding agent — sessions & tabs
 
-This raised the question "what if such an editor existed?", a question that led to the creation of [this concept](https://www.figma.com/proto/qj6raZbQsZpGO0NAVi4qsv/CodeEdit-Concept?node-id=1%3A870), which our project aims to make a reality.
+A built-in [Claude](https://www.anthropic.com/claude) coding agent lives right inside the workspace, alongside the editor and terminal:
 
-## Mission
+- **Agent mode** runs the Claude CLI directly in the editor area, themed to match your light/dark editor theme.
+- **Multi-tab sessions** — open a new Claude tab to start a fresh session, with a Chrome-style Liquid Glass tab bar that mirrors the editor's own tabs.
+- **Session history** — every conversation is saved per project. A new **Sessions** inspector lists all of the project's past sessions and lets you reopen one in the current tab (the default) or in a new tab. Open tabs are restored when you reopen the workspace.
+- **Claude inspector** — an **Info** panel surfaces your account, plan, live usage, and the active model and reasoning effort.
 
-It is our commitment to keep CodeEdit open source and free forever, supported by the community.
+### 🎵 Spotify player
 
-<img width="1012" alt="TextEdit plus Xcode equals CodeEdit" src="https://github.com/CodeEditApp/CodeEdit/assets/806104/a9379df0-ab26-4ef8-98a9-2e2b4bd8c7b4">
+A Liquid Glass mini-player in the toolbar replaces the old task UI:
 
-Our goal is to maintain a lightweight experience, similar to TextEdit, while being able to scale up to a more feature-rich experience, comparable to Xcode, as necessary.
+- Sign in with your own Spotify account (OAuth 2.0 with PKCE — no client secret stored in the app).
+- Now-playing artwork, title and artist, with play/pause, previous/next, an inline scrubber, a like button, and a volume slider.
+- Built directly on the Spotify Web API. *(Playback control requires a Spotify Premium account.)*
 
-We strive to remain true to Apple's human interface guidelines and development patterns, ensuring CodeEdit looks and feels like an application developed by Apple themselves, which includes a meticulous attention to detail.
+### 🎮 Discord Rich Presence
 
-## Community
+Show what you're working on in CodeEditAi on your Discord profile, like the VS Code presence extension:
 
-Join our growing community on [Discord](https://discord.gg/vChUXVf9Em) and [GitHub Discussions](https://github.com/orgs/CodeEditApp/discussions) where we discuss and collaborate on all things CodeEdit. Don't be shy, jump right in and be part of the discussion!
+- Displays the app, the **project folder**, your **git branch**, an editing/idle status, and elapsed time.
+- **Privacy-first:** folder-only — it never transmits file names. Turn it off with a single switch in Settings.
+
+### 🌗 Light theme fixes
+
+The Claude agent terminal and the bottom terminal now correctly follow your selected light/dark theme — no more black highlights or unreadable colors in light mode.
+
+## Liquid Glass redesign
+
+CodeEditAi adopts Apple's new **Liquid Glass** design language (macOS 26 Tahoe / macOS 27) across all of the new surfaces, so they feel like a natural part of the system:
+
+- Native `NSGlassEffectView` / SwiftUI `.glassEffect()` for the Claude tab bar and the session selection.
+- Translucent inspector panels that match the left-hand navigator, using proper vibrancy materials.
+- A capsule Liquid Glass toolbar player that sits inside the native macOS 26 toolbar glass — no double pills.
+- Hover states, rounded corners, and accessibility-minded hit targets throughout the new UI.
+
+Each Liquid Glass surface is guarded by availability checks, so the app still builds and runs cleanly, falling back gracefully on earlier macOS releases.
+
+## Building from source
 
 > [!NOTE]
-> We hold a weekly meetup on Discord **every Saturday at 3pm UTC** where we discuss latests development, feature requests, goals, and priorities.
-> 
-> [**Join us**](https://discord.gg/KvdE3wYKNR?event=1189275961456336937)
-> 
-## Activity
+> The Liquid Glass surfaces use the **macOS 26/27 SDK**, so you need a matching **Xcode 26/27** toolchain to build.
 
-<img src="https://repobeats.axiom.co/api/embed/acd5eeb654fc98f6ffbce26b09fd0e3603edf1fd.svg" alt="CodeEdit Repository Activity" width="100%" />
+```bash
+git clone https://github.com/NelWenn/CodeEdit.git
+cd CodeEdit
+open CodeEdit.xcodeproj   # then Run (⌘R) in Xcode
+```
+
+Or build a release `.app` from the command line:
+
+```bash
+xcodebuild -project CodeEdit.xcodeproj -scheme CodeEdit -configuration Release \
+  -destination 'platform=macOS,arch=arm64' -skipPackagePluginValidation build
+```
+
+To use the integrations you'll also need the [Claude CLI](https://www.anthropic.com/claude) installed, a Spotify account for the player, and a Discord application ID plus the Discord desktop app running for Rich Presence.
+
+## Credits
+
+CodeEditAi is built on the incredible work of the **[CodeEdit](https://github.com/CodeEditApp/CodeEdit)** project and its community — the entire native editor, git integration, terminal, language support, and source-editor engine come from them. Huge thanks to [Austin Condiff](https://github.com/austincondiff) and [all of CodeEdit's contributors](#contributors) (listed below, unchanged from upstream).
+
+- **Fork & AI integration:** [NelWenn](https://github.com/NelWenn)
+- **Original editor:** [CodeEdit](https://github.com/CodeEditApp/CodeEdit) by the CodeEdit community (MIT)
 
 ## Contributing
 
-Be part of the next revolution in code editing by contributing to the project. This is a community-led effort, so we welcome as many contributors who can help. Read the [Contribution Guide](https://github.com/CodeEditApp/CodeEdit/blob/main/CONTRIBUTING.md) for more information.
-
-This project spans [multiple repositories](https://github.com/CodeEditApp/CodeEdit#related-repositories) so instead of browsing issues in the issues tab, it may be helpful to find an issue to get started on in our [project board](https://github.com/orgs/CodeEditApp/projects/3/views/1).
-
-For issues we want to focus on that are most relevant at any given time, please see the issues scoped to our current iteration [here](https://github.com/orgs/CodeEditApp/projects/3/views/10).
+This is a personal fork. If you're interested in the core editor, please contribute upstream at [CodeEditApp/CodeEdit](https://github.com/CodeEditApp/CodeEdit) — see their [Contribution Guide](https://github.com/CodeEditApp/CodeEdit/blob/main/CONTRIBUTING.md). For issues specific to CodeEditAi's fork features, open an issue on [this repository](https://github.com/NelWenn/CodeEdit/issues).
 
 ## Contributors
 
