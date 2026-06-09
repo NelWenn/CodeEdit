@@ -136,8 +136,8 @@ final class CodeEditSplitViewController: NSSplitViewController {
             navigatorWidth = Self.minSidebarWidth
         }
         splitView.setPosition(navigatorWidth, ofDividerAt: 0)
-        NSLog("CEAI-NAV viewWillAppear restore: saved=%@ applied=%.0f actual=%.0f",
-              String(describing: savedWidth), navigatorWidth, splitView.subviews.first?.frame.width ?? -1)
+        Self.ceaiLog("viewWillAppear restore: saved=\(String(describing: savedWidth)) "
+            + "applied=\(navigatorWidth) actualAfter=\(splitView.subviews.first?.frame.width ?? -1)")
 
         if let firstSplitView = splitViewItems.first {
             firstSplitView.isCollapsed = workspace.getFromWorkspaceState(
@@ -227,6 +227,8 @@ final class CodeEditSplitViewController: NSSplitViewController {
         // window-resize / minimize are superseded by the final stable value, and this does not
         // depend on the `NSSplitViewDividerIndex` userInfo key (unreliable on macOS 26+), so the
         // user's chosen width is actually captured.
+        Self.ceaiLog("resize: navWidth=\(splitView.subviews.first?.frame.width ?? -1) "
+            + "dividerKey=\(String(describing: notification.userInfo?["NSSplitViewDividerIndex"]))")
         saveNavigatorWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.saveNavigatorWidth() }
         saveNavigatorWorkItem = work
@@ -237,16 +239,29 @@ final class CodeEditSplitViewController: NSSplitViewController {
     private func saveNavigatorWidth() {
         guard let navigatorItem = splitViewItems.first, !navigatorItem.isCollapsed,
               let navigatorView = splitView.subviews.first else {
-            NSLog("CEAI-NAV save SKIP (collapsed / no view)")
+            Self.ceaiLog("save SKIP (collapsed / no view)")
             return
         }
         let width = navigatorView.frame.size.width
         if width >= Self.minSidebarWidth && width <= Self.maxSidebarWidth {
             workspace?.addToWorkspaceState(key: .splitViewWidth, value: width)
-            NSLog("CEAI-NAV save width=%.0f -> SAVED", width)
+            Self.ceaiLog("save width=\(width) -> SAVED")
         } else {
-            NSLog("CEAI-NAV save width=%.0f -> SKIPPED (out of [%.0f, %.0f])",
-                  width, Self.minSidebarWidth, Self.maxSidebarWidth)
+            Self.ceaiLog("save width=\(width) -> SKIPPED (out of [\(Self.minSidebarWidth), \(Self.maxSidebarWidth)])")
+        }
+    }
+
+    /// Appends a diagnostic line to /tmp/ceai-nav.log (NSLog isn't reliably captured here).
+    static func ceaiLog(_ message: String) {
+        let line = "\(Date()) CEAI-NAV \(message)\n"
+        let url = URL(fileURLWithPath: "/tmp/ceai-nav.log")
+        guard let data = line.data(using: .utf8) else { return }
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            try? handle.close()
+        } else {
+            try? data.write(to: url)
         }
     }
 
