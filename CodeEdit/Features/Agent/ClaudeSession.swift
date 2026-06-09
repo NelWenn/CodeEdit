@@ -82,3 +82,25 @@ final class ClaudeSession: ObservableObject {
         }
     }
 }
+
+extension ClaudeSession {
+    /// Builds the shell command that launches `claude` for one tab.
+    /// - `resume == false` → start a new session with a known id (`--session-id`).
+    /// - `resume == true`  → resume an existing session (`--resume`).
+    /// `--continue`/`--resume` keep a conversation's model/effort, so pass them explicitly when set.
+    static func launchCommand(sessionId: String, resume: Bool, model: String?, effort: String?) -> String {
+        var command = "claude"
+        command += resume ? " --resume \(sessionId)" : " --session-id \(sessionId)"
+        if let model, !model.isEmpty { command += " --model \(model)" }
+        if let effort, !effort.isEmpty {
+            if effort == "ultracode" {
+                // `ultracode` is not a --effort value (claude rejects it); it's a session setting
+                // (xhigh effort + dynamic-workflow orchestration) enabled via --settings.
+                command += " --settings '{\"ultracode\": true}'"
+            } else {
+                command += " --effort \(effort)"
+            }
+        }
+        return command
+    }
+}
