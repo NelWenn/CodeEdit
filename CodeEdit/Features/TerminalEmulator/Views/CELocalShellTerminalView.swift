@@ -55,6 +55,11 @@ class CELocalShellTerminalView: CETerminalView, TerminalViewDelegate, LocalProce
     /// SwiftTerm's own `scrollWheel` only scrolls the scrollback, which is empty in the alternate
     /// screen, so without this the wheel appears to do nothing in those programs.
     private var scrollMonitor: Any?
+    /// Accumulated trackpad travel (pixels), so precise scrolling emits one wheel tick per
+    /// `scrollStepInPoints` instead of one per event (which felt hyper-sensitive).
+    private var scrollAccumulator: CGFloat = 0
+    /// Trackpad travel per emitted wheel tick. Higher = less sensitive.
+    private let scrollStepInPoints: CGFloat = 24
 
     override public init(frame: CGRect) {
         super.init(frame: frame)
@@ -96,7 +101,7 @@ class CELocalShellTerminalView: CETerminalView, TerminalViewDelegate, LocalProce
     /// the focused, mouse-tracking target under the pointer. Returns true when it consumed the event,
     /// so SwiftTerm's default (empty) scrollback scroll is skipped.
     private func forwardScrollWheel(_ event: NSEvent) -> Bool {
-        guard event.deltaY != 0,
+        guard event.deltaY != 0 || event.scrollingDeltaY != 0,
               let window, event.window === window,
               window.firstResponder === self,
               allowMouseReporting, terminal.mouseMode != .off else {
@@ -104,7 +109,26 @@ class CELocalShellTerminalView: CETerminalView, TerminalViewDelegate, LocalProce
         }
         let local = convert(event.locationInWindow, from: nil)
         guard bounds.contains(local) else { return false }
-        let button = event.deltaY > 0 ? 4 : 5   // xterm: 4 = wheel up, 5 = wheel down
+
+        // Decide how many wheel ticks to emit and in which direction. Precise (trackpad) scrolling
+        // is accumulated so it isn't hyper-sensitive; a discrete mouse notch is one tick.
+        let isUp: Bool
+        let ticks: Int
+        if event.hasPreciseScrollingDeltas {
+            let delta = event.scrollingDeltaY
+            if delta != 0, (scrollAccumulator > 0) != (delta > 0) { scrollAccumulator = 0 }
+            scrollAccumulator += delta
+            let magnitude = Int(abs(scrollAccumulator) / scrollStepInPoints)
+            guard magnitude > 0 else { return true }   // consumed, still accumulating
+            isUp = scrollAccumulator > 0
+            scrollAccumulator -= CGFloat(magnitude) * scrollStepInPoints * (isUp ? 1 : -1)
+            ticks = min(magnitude, 4)
+        } else {
+            isUp = event.deltaY > 0
+            ticks = 1
+        }
+
+        let button = isUp ? 4 : 5   // xterm: 4 = wheel up, 5 = wheel down
         let flags = terminal.encodeButton(
             button: button,
             release: false,
@@ -113,8 +137,6 @@ class CELocalShellTerminalView: CETerminalView, TerminalViewDelegate, LocalProce
             control: event.modifierFlags.contains(.control)
         )
         let position = wheelGridPosition(at: local)
-        // One tick per call keeps a trackpad smooth; a fast mouse notch sends a few.
-        let ticks = max(1, min(Int(abs(event.deltaY)), 4))
         for _ in 0..<ticks {
             terminal.sendEvent(buttonFlags: flags, x: position.col, y: position.row)
         }

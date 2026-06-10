@@ -38,10 +38,6 @@ struct WorkspaceView: View {
 
     private let statusbarHeight: CGFloat = 29
 
-    /// Periodically refreshes Claude tab titles from each session's conversation subject.
-    /// Static so it isn't recreated (and reset) on every view update.
-    private static let claudeTitleTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
-
     private var keybindings: KeybindingManager =  .shared
 
     var body: some View {
@@ -151,35 +147,10 @@ struct WorkspaceView: View {
                             focus: $focusedEditor
                         )
                     case .agent:
-                        let manager = workspace.claudeSessionManager
-                        let claudeFolder = workspace.workspaceFileManager?.folderUrl
-                        VStack(spacing: 0) {
-                            ClaudeTabBar(manager: manager)
-                            ZStack {
-                                // Keep every tab's terminal mounted and just toggle visibility, so
-                                // switching tabs is an instant crossfade instead of tearing down and
-                                // rebuilding the terminal (the old source of the janky transition).
-                                ForEach(manager.tabs) { session in
-                                    ClaudeAgentView(
-                                        session: session,
-                                        workspaceURL: claudeFolder,
-                                        isActive: session.id == manager.activeTabID
-                                    )
-                                    .id("\(session.id.uuidString)-\(session.generation)")
-                                    .opacity(session.id == manager.activeTabID ? 1 : 0)
-                                    .allowsHitTesting(session.id == manager.activeTabID)
-                                }
-                            }
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .animation(.easeInOut(duration: 0.12), value: manager.activeTabID)
-                        }
-                        .background(EffectView(.contentBackground))
-                        .onAppear { manager.ensureAtLeastOneTab() }
-                        .onReceive(Self.claudeTitleTimer) { _ in
-                            manager.refreshAutoTitles(workspaceURL: claudeFolder)
-                        }
+                        ClaudeAgentAreaView(
+                            manager: workspace.claudeSessionManager,
+                            workspaceURL: workspace.workspaceFileManager?.folderUrl
+                        )
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -256,5 +227,44 @@ struct WorkspaceView: View {
             }
         }
         return true
+    }
+}
+
+/// The Agent-mode area: the Claude tab bar over a stack of per-session terminals. It observes the
+/// session manager directly so switching the active tab (or renaming/auto-naming) re-renders here.
+private struct ClaudeAgentAreaView: View {
+    @ObservedObject var manager: ClaudeSessionManager
+    let workspaceURL: URL?
+
+    /// Refreshes not-yet-renamed tab titles from each session's conversation subject.
+    /// Static so it isn't recreated (and reset) on every view update.
+    private static let titleTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ClaudeTabBar(manager: manager)
+            ZStack {
+                // Every tab's terminal stays mounted; only the active one is shown (via AppKit
+                // `isHidden` inside ClaudeAgentView). Switching is instant with no teardown/rebuild,
+                // which was the source of the janky transition.
+                ForEach(manager.tabs) { session in
+                    ClaudeAgentView(
+                        session: session,
+                        workspaceURL: workspaceURL,
+                        isActive: session.id == manager.activeTabID
+                    )
+                    .id("\(session.id.uuidString)-\(session.generation)")
+                    .allowsHitTesting(session.id == manager.activeTabID)
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        }
+        .background(EffectView(.contentBackground))
+        .onAppear { manager.ensureAtLeastOneTab() }
+        .onReceive(Self.titleTimer) { _ in
+            manager.refreshAutoTitles(workspaceURL: workspaceURL)
+        }
     }
 }

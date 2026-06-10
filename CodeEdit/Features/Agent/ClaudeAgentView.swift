@@ -31,6 +31,9 @@ struct ClaudeAgentView: NSViewRepresentable {
 
     func updateNSView(_ nsView: CELocalShellTerminalView, context: Context) {
         configure(nsView)
+        // Hide inactive tabs with AppKit's `isHidden` (SwiftUI `.opacity` doesn't reliably hide a
+        // layer-backed terminal that paints an opaque background, so stacked tabs would all show).
+        nsView.isHidden = !isActive
         focusIfActive(nsView)
     }
 
