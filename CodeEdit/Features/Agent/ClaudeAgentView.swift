@@ -26,15 +26,36 @@ struct ClaudeAgentView: NSViewRepresentable {
     func makeNSView(context: Context) -> CELocalShellTerminalView {
         let view = session.makeOrReuseTerminal(workspaceURL: workspaceURL)
         configure(view)
+        context.coordinator.appliedSignature = configSignature
+        view.alphaValue = isActive ? 1 : 0
         return view
     }
 
     func updateNSView(_ nsView: CELocalShellTerminalView, context: Context) {
-        configure(nsView)
-        // Hide inactive tabs with AppKit's `isHidden` (SwiftUI `.opacity` doesn't reliably hide a
-        // layer-backed terminal that paints an opaque background, so stacked tabs would all show).
-        nsView.isHidden = !isActive
+        // Only re-theme when the theme/appearance actually changed. Re-running configure() on every
+        // update (each tab switch, plus the 3s title timer) redraws every mounted terminal at once,
+        // which flickers the whole agent area.
+        if context.coordinator.appliedSignature != configSignature {
+            configure(nsView)
+            context.coordinator.appliedSignature = configSignature
+        }
+        // Show only the active tab. `alphaValue` (not `isHidden`) keeps inactive terminals rendered,
+        // so switching is an instant alpha flip with no blank-frame flash, and (unlike SwiftUI
+        // `.opacity`) it reliably hides the opaque, layer-backed terminal.
+        nsView.alphaValue = isActive ? 1 : 0
         focusIfActive(nsView)
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator() }
+
+    final class Coordinator {
+        /// Signature of the last applied theme/appearance, so configure() only re-runs on change.
+        var appliedSignature: String?
+    }
+
+    /// Identifies the current theme/appearance/font so configure() can skip redundant re-theming.
+    private var configSignature: String {
+        "\(themeIndex ?? -1)|\(isDarkAppearance)|\(font.fontName)|\(font.pointSize)"
     }
 
     /// Make the active tab's terminal the first responder, unless the user is editing a text field
