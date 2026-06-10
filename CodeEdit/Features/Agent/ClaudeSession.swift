@@ -12,8 +12,10 @@ import SwiftTerm
 final class ClaudeSession: ObservableObject, Identifiable {
     /// Stable tab identity (for SwiftUI `id()` and manager lookup).
     let id = UUID()
-    /// The Claude session UUID this tab runs (the `.jsonl` filename stem).
-    let claudeSessionId: String
+    /// The Claude session UUID this tab runs (the `.jsonl` filename stem). Mutable because a fresh
+    /// session relaunched before it has any conversation is restarted under a new id (see
+    /// `launchClaudeIfNeeded`).
+    private(set) var claudeSessionId: String
     /// Tab label, shown in the tab bar.
     @Published private(set) var title: String
     /// Bumped on restart so the SwiftUI Agent view recreates the terminal.
@@ -21,12 +23,14 @@ final class ClaudeSession: ObservableObject, Identifiable {
 
     /// Set once the user renames the tab, so auto-naming stops overriding their choice.
     private var isManuallyTitled = false
+    /// True when this tab was opened from an existing on-disk session (list/restore), so it must
+    /// always `--resume` its id rather than ever minting a new one.
+    private let isResuming: Bool
 
     private var terminalView: CELocalShellTerminalView?
     private var hasLaunchedClaude = false
-    /// True once `claude` has been launched at least once for this session id. Subsequent
-    /// relaunches (e.g. a model/effort change) then `--resume` it even if its `.jsonl` hasn't
-    /// flushed to disk yet, avoiding a `--session-id` collision on the already-registered id.
+    /// True once `claude` has been launched at least once for this tab (used to decide between
+    /// resuming and starting fresh on a model/effort change).
     private var hasEverLaunched = false
     /// Model/effort to force on the next launch (e.g. resuming with the current settings).
     private var relaunchModel: String?
@@ -37,12 +41,14 @@ final class ClaudeSession: ObservableObject, Identifiable {
     init(title: String = "New Session") {
         self.claudeSessionId = UUID().uuidString.lowercased()
         self.title = title
+        self.isResuming = false
     }
 
     /// A session bound to an existing Claude session id (resumed from the list or restored).
     init(resuming claudeSessionId: String, title: String) {
         self.claudeSessionId = claudeSessionId
         self.title = title
+        self.isResuming = true
     }
 
     /// Set the model/effort to apply on the next (first) launch, without relaunching now.
@@ -109,9 +115,22 @@ final class ClaudeSession: ObservableObject, Identifiable {
     private func launchClaudeIfNeeded(in view: CELocalShellTerminalView, workspaceURL: URL?) {
         guard !hasLaunchedClaude else { return }
         hasLaunchedClaude = true
-        // Resume if the session was launched before (this tab restarting) or already has a
-        // `.jsonl` (opened from the list / restored); otherwise start it fresh with `--session-id`.
-        let resume = hasEverLaunched || sessionFileExists(workspaceURL: workspaceURL)
+        let resume: Bool
+        if isResuming || sessionFileExists(workspaceURL: workspaceURL) {
+            // A real conversation exists on disk (opened from the list/restored, or this tab has
+            // already exchanged messages) → resume it.
+            resume = true
+        } else if hasEverLaunched {
+            // Launched before but it never produced a conversation — e.g. the model/effort was
+            // changed before the first message. The id is already registered, so reusing
+            // `--session-id` would collide and `--resume` has nothing to resume ("No conversation
+            // found with session ID"). Start fresh under a new id — nothing was said, nothing lost.
+            claudeSessionId = UUID().uuidString.lowercased()
+            resume = false
+        } else {
+            // First-ever launch of a brand-new session.
+            resume = false
+        }
         hasEverLaunched = true
         let command = Self.launchCommand(
             sessionId: claudeSessionId,
