@@ -51,6 +51,11 @@ protocol CELocalShellTerminalViewDelegate: AnyObject {
 class CELocalShellTerminalView: CETerminalView, TerminalViewDelegate, LocalProcessDelegate {
     var process: LocalProcess!
 
+    /// Local monitor that forwards the scroll wheel to mouse-tracking TUIs (claude, vim, less, …).
+    /// SwiftTerm's own `scrollWheel` only scrolls the scrollback, which is empty in the alternate
+    /// screen, so without this the wheel appears to do nothing in those programs.
+    private var scrollMonitor: Any?
+
     override public init(frame: CGRect) {
         super.init(frame: frame)
         setup()
@@ -61,6 +66,10 @@ class CELocalShellTerminalView: CETerminalView, TerminalViewDelegate, LocalProce
         setup()
     }
 
+    deinit {
+        if let scrollMonitor { NSEvent.removeMonitor(scrollMonitor) }
+    }
+
     /// The `processDelegate` is used to deliver messages and information relevant to the execution of the terminal.
     public weak var processDelegate: CELocalShellTerminalViewDelegate?
 
@@ -68,6 +77,61 @@ class CELocalShellTerminalView: CETerminalView, TerminalViewDelegate, LocalProce
         terminal = Terminal(delegate: self, options: TerminalOptions(scrollback: 2000))
         terminalDelegate = self
         process = LocalProcess(delegate: self)
+        installScrollWheelForwarding()
+    }
+
+    // MARK: - Scroll wheel forwarding
+
+    /// Intercepts scroll-wheel events before SwiftTerm so mouse-tracking programs receive them.
+    /// SwiftTerm's `scrollWheel` is sealed (`public`, not `open`), so a local monitor is used
+    /// instead of an override.
+    private func installScrollWheelForwarding() {
+        scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { [weak self] event in
+            guard let self, self.forwardScrollWheel(event) else { return event }
+            return nil
+        }
+    }
+
+    /// Forwards a wheel event to the program as xterm mouse-wheel buttons (4/5) when this terminal is
+    /// the focused, mouse-tracking target under the pointer. Returns true when it consumed the event,
+    /// so SwiftTerm's default (empty) scrollback scroll is skipped.
+    private func forwardScrollWheel(_ event: NSEvent) -> Bool {
+        guard event.deltaY != 0,
+              let window, event.window === window,
+              window.firstResponder === self,
+              allowMouseReporting, terminal.mouseMode != .off else {
+            return false
+        }
+        let local = convert(event.locationInWindow, from: nil)
+        guard bounds.contains(local) else { return false }
+        let button = event.deltaY > 0 ? 4 : 5   // xterm: 4 = wheel up, 5 = wheel down
+        let flags = terminal.encodeButton(
+            button: button,
+            release: false,
+            shift: event.modifierFlags.contains(.shift),
+            meta: event.modifierFlags.contains(.option),
+            control: event.modifierFlags.contains(.control)
+        )
+        let position = wheelGridPosition(at: local)
+        // One tick per call keeps a trackpad smooth; a fast mouse notch sends a few.
+        let ticks = max(1, min(Int(abs(event.deltaY)), 4))
+        for _ in 0..<ticks {
+            terminal.sendEvent(buttonFlags: flags, x: position.col, y: position.row)
+        }
+        return true
+    }
+
+    /// Grid cell (0-based col/row) for a point in this view, derived from public terminal metrics
+    /// (SwiftTerm's hit-test helpers are module-internal).
+    private func wheelGridPosition(at local: CGPoint) -> (col: Int, row: Int) {
+        let cols = max(terminal.cols, 1)
+        let rows = max(terminal.rows, 1)
+        let cellWidth = bounds.width / CGFloat(cols)
+        let cellHeight = bounds.height / CGFloat(rows)
+        guard cellWidth > 0, cellHeight > 0 else { return (0, 0) }
+        let col = min(max(Int(local.x / cellWidth), 0), cols - 1)
+        let row = min(max(Int((bounds.height - local.y) / cellHeight), 0), rows - 1)
+        return (col, row)
     }
 
     /// Launches a child process inside a pseudo-terminal.

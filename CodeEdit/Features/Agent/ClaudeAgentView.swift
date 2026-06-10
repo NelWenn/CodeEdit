@@ -20,6 +20,8 @@ struct ClaudeAgentView: NSViewRepresentable {
 
     let session: ClaudeSession
     let workspaceURL: URL?
+    /// True for the visible tab — it claims keyboard focus so typing goes to the active session.
+    var isActive: Bool = true
 
     func makeNSView(context: Context) -> CELocalShellTerminalView {
         let view = session.makeOrReuseTerminal(workspaceURL: workspaceURL)
@@ -29,6 +31,18 @@ struct ClaudeAgentView: NSViewRepresentable {
 
     func updateNSView(_ nsView: CELocalShellTerminalView, context: Context) {
         configure(nsView)
+        focusIfActive(nsView)
+    }
+
+    /// Make the active tab's terminal the first responder, unless the user is editing a text field
+    /// (e.g. renaming a tab) — so switching tabs focuses the terminal without stealing focus.
+    private func focusIfActive(_ nsView: CELocalShellTerminalView) {
+        guard isActive else { return }
+        DispatchQueue.main.async {
+            guard let window = nsView.window, window.firstResponder !== nsView else { return }
+            if window.firstResponder is NSTextView { return }
+            window.makeFirstResponder(nsView)
+        }
     }
 
     // MARK: - Theming

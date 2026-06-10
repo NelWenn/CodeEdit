@@ -19,6 +19,9 @@ final class ClaudeSession: ObservableObject, Identifiable {
     /// Bumped on restart so the SwiftUI Agent view recreates the terminal.
     @Published private(set) var generation = 0
 
+    /// Set once the user renames the tab, so auto-naming stops overriding their choice.
+    private var isManuallyTitled = false
+
     private var terminalView: CELocalShellTerminalView?
     private var hasLaunchedClaude = false
     /// True once `claude` has been launched at least once for this session id. Subsequent
@@ -46,6 +49,25 @@ final class ClaudeSession: ObservableObject, Identifiable {
     func prepareLaunch(model: String?, effort: String?) {
         relaunchModel = model
         relaunchEffort = effort
+    }
+
+    // MARK: - Title
+
+    /// Whether auto-naming may still update this tab's title (false once the user renames it).
+    var canAutoTitle: Bool { !isManuallyTitled }
+
+    /// Rename the tab explicitly (from the UI). Pins the title against auto-naming.
+    func rename(to newTitle: String) {
+        let trimmed = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        isManuallyTitled = true
+        if trimmed != title { title = trimmed }
+    }
+
+    /// Apply a title derived from the conversation subject, unless the user has renamed the tab.
+    func applyAutoTitle(_ newTitle: String) {
+        guard !isManuallyTitled, newTitle != title else { return }
+        title = newTitle
     }
 
     /// Returns the existing terminal view, or creates one rooted at `workspaceURL`, starts the

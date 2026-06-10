@@ -47,6 +47,34 @@ final class ClaudeSessionManager: ObservableObject {
 
     func activate(_ id: UUID) { activeTabID = id }
 
+    /// Rename a tab explicitly (pins it against auto-naming).
+    func rename(_ id: UUID, to newTitle: String) {
+        tabs.first { $0.id == id }?.rename(to: newTitle)
+    }
+
+    /// Refresh every not-yet-renamed tab's title from its conversation subject (the session's
+    /// `.jsonl`). The file reads happen off the main thread; titles are applied back on main.
+    func refreshAutoTitles(workspaceURL: URL?) {
+        guard let workspaceURL else { return }
+        let candidates = tabs.filter(\.canAutoTitle).map { (id: $0.id, sessionId: $0.claudeSessionId) }
+        guard !candidates.isEmpty else { return }
+        let directory = ClaudeSessionsReader().sessionsDirectory(for: workspaceURL)
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let updates: [(UUID, String)] = candidates.compactMap { candidate in
+                let file = directory.appendingPathComponent("\(candidate.sessionId).jsonl")
+                guard let title = ClaudeSessionsReader.deriveTitle(fromFileAt: file) else { return nil }
+                return (candidate.id, title)
+            }
+            guard !updates.isEmpty else { return }
+            DispatchQueue.main.async {
+                guard let self else { return }
+                for (id, title) in updates {
+                    self.tabs.first { $0.id == id }?.applyAutoTitle(title)
+                }
+            }
+        }
+    }
+
     func closeTab(_ id: UUID) {
         guard let idx = tabs.firstIndex(where: { $0.id == id }) else { return }
         tabs[idx].terminate()

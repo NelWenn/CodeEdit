@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 import UniformTypeIdentifiers
 
 struct WorkspaceView: View {
@@ -36,6 +37,10 @@ struct WorkspaceView: View {
     @State private var drawerHeight: CGFloat = 0
 
     private let statusbarHeight: CGFloat = 29
+
+    /// Periodically refreshes Claude tab titles from each session's conversation subject.
+    /// Static so it isn't recreated (and reset) on every view update.
+    private static let claudeTitleTimer = Timer.publish(every: 3, on: .main, in: .common).autoconnect()
 
     private var keybindings: KeybindingManager =  .shared
 
@@ -147,23 +152,34 @@ struct WorkspaceView: View {
                         )
                     case .agent:
                         let manager = workspace.claudeSessionManager
+                        let claudeFolder = workspace.workspaceFileManager?.folderUrl
                         VStack(spacing: 0) {
                             ClaudeTabBar(manager: manager)
-                            Group {
-                                if let active = manager.activeSession {
+                            ZStack {
+                                // Keep every tab's terminal mounted and just toggle visibility, so
+                                // switching tabs is an instant crossfade instead of tearing down and
+                                // rebuilding the terminal (the old source of the janky transition).
+                                ForEach(manager.tabs) { session in
                                     ClaudeAgentView(
-                                        session: active,
-                                        workspaceURL: workspace.workspaceFileManager?.folderUrl
+                                        session: session,
+                                        workspaceURL: claudeFolder,
+                                        isActive: session.id == manager.activeTabID
                                     )
-                                    .id("\(active.id.uuidString)-\(active.generation)")
-                                    .padding(.horizontal, 14)
-                                    .padding(.vertical, 8)
+                                    .id("\(session.id.uuidString)-\(session.generation)")
+                                    .opacity(session.id == manager.activeTabID ? 1 : 0)
+                                    .allowsHitTesting(session.id == manager.activeTabID)
                                 }
                             }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .animation(.easeInOut(duration: 0.12), value: manager.activeTabID)
                         }
                         .background(EffectView(.contentBackground))
                         .onAppear { manager.ensureAtLeastOneTab() }
+                        .onReceive(Self.claudeTitleTimer) { _ in
+                            manager.refreshAutoTitles(workspaceURL: claudeFolder)
+                        }
                     }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
