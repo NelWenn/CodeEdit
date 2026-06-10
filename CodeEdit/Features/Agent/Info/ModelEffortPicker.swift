@@ -5,6 +5,7 @@ struct ModelEffortPicker: View {
     @ObservedObject var model: ClaudeInfoModel
 
     private let modelOptions: [(value: String, label: String)] = [
+        ("claude-fable-5", "Fable 5"),
         ("opus", "Opus"),
         ("sonnet", "Sonnet"),
         ("haiku", "Haiku")
@@ -22,7 +23,7 @@ struct ModelEffortPicker: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             LabeledContent("Model") {
-                Menu(model.currentModel ?? "default") {
+                Menu(modelLabel(model.currentModel)) {
                     ForEach(modelOptions, id: \.value) { option in
                         Button(option.label) { model.setModel(option.value) }
                     }
@@ -40,6 +41,10 @@ struct ModelEffortPicker: View {
                     .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private func modelLabel(_ value: String?) -> String {
+        modelOptions.first { $0.value == value }?.label ?? (value ?? "default")
     }
 
     private func effortLabel(_ value: String?) -> String {
